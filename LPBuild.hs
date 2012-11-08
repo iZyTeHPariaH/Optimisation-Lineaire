@@ -2,8 +2,9 @@ module LPBuild where
 
 import LinearPb
 import Control.Monad
+import Control.Monad.State
 import GHC.Float
-
+import Data.Array
 
 type CoeffList = [(DVar,Coefficient)]
 
@@ -38,4 +39,12 @@ addConstraint ci c =   case c of
       setCtr ci clist bi
       return $ Nothing
   
-  
+please :: LinearPbS ()  
+please = do
+  p <- get
+  let a = getA p
+      ((m0,n0),(m1,n1)) = bounds a
+  put $ p{getA = array ((m0+1,n0+1), (m1,n1)) [(coord,val) | (coord@(i,j),val) <- assocs $ a,
+                                                             i > 0, j > 0],
+          getB = array (m0+1,m1) (tail $ assocs $ getB p),
+          getC = array (n0+1, n1) (tail $ assocs $ getC p)}
