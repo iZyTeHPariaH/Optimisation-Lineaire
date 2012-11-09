@@ -16,9 +16,26 @@ data OptAns = Opt | Infinite | Err
 
 data LinearPb = LinearPb { getA :: Array2D Double,
                            getB :: Array1D Double,
-                           getC :: Array1D Double}
-              deriving Show
+                           getC :: Array1D Double,
+                           getZ :: Double}
 
+--fonction qui a une liste de couple (indice,valeur) associe "valeur*x indice"
+affLigne l = let affElem (a,b) = if b>0 then " + "++(show b)++" x"++(show a)
+                                 else if b<0 then " - "++drop 1 (show b)++" x"++(show a)
+                                 else ""
+         	   in (concat (map affElem l))
+
+affContraintes :: Array2D Double -> Array1D Double -> String      
+affContraintes a b = let ((m0,n0), (m1,n1)) = bounds a
+                         ligne i = [(k,a ! (i,k)) | k <- [n0..n1]]
+                         tuples = zip [ligne i | i <- [m0..m1]] [b ! i | i <- [m0..m1]]
+                         affLi (c,b') = affLigne c ++" = "++ show b' ++"\n"
+                     in concat (map affLi tuples)
+
+instance Show LinearPb where
+ show p = "/* Fction Obj */\nmax : "++ affLigne (assocs (getC p)) ++ "=" ++ show (getZ p) ++
+          "\n"++"\n/* Sous Contraintes */\n\n"++ affContraintes (getA p) (getB p)
+          
 type LinearPbS = State LinearPb           
 
 
@@ -60,17 +77,8 @@ setCi :: DVar -> Coefficient -> LinearPbS ()
 setCi xi ci = do
   p <- get
   put $ p{getC = getC p // [(xi,ci)]}
-emptyPb = LinearPb (array ((0,0),(0,0)) [((0,0),0)]) (array (0,0) [(0,0)]) (array (0,0) [(0,0)])
+
+emptyPb = LinearPb (array ((0,0),(0,0)) [((0,0),0)]) (array (0,0) [(0,0)]) (array (0,0) [(0,0)]) 0
 
 
--- Calcul du dual d'un problème : on passe de Max sc <= à Min sc >= ou réciproquement
-dual :: LinearPbS ()
-dual = do
-  p <- get
-  let ((m0,n0), (m1,n1)) = bounds $ getA p
-  put $ p{getA = array ((n0,m0), (n1,m1)) [((i,j),val) | i <- [n0..n1], j <- [m0..m1], let val = getA p ! (j,i)],
-          getB = getC p,
-          getC = getB p} 
 
-
-      

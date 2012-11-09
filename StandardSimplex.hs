@@ -20,7 +20,8 @@ echelonner (ipiv,jpiv) piv = do
                                           else precbi - (b ! ipiv)*(a ! (ct, jpiv) / piv)],
           getC = c // [(j,ci) |(j,precci) <- assocs c,
                                 let ci = if j == jpiv then 0
-                                         else precci - (a ! (ipiv,j))* (c ! jpiv) / piv ]}
+                                         else precci - (a ! (ipiv,j))* (c ! jpiv) / piv ],
+          getZ = getZ p - (b ! ipiv) * (c ! jpiv) / piv}
     
 
 
