@@ -1,4 +1,4 @@
-module LinearPb where
+module Solve.LP.LinearPb where
 
 import Data.Array
 import Data.List
@@ -11,14 +11,28 @@ type DVar = Integer
 type Ctr = Integer
 type Coefficient = Double
 
+infty = let (mm,mM) = floatRange (0::Double)
+        in ((2^(mM-1))::Double) + 1
+--infty = 999    
+
 data OptAns = Opt | Infinite | Err
           deriving Show
 
 data LinearPb = LinearPb { getA :: Array2D Double,
                            getB :: Array1D Double,
                            getC :: Array1D Double,
-                           getZ :: Double}
-
+                           getZ :: Double,
+                           getEcart :: [DVar],
+                           getArt :: [DVar]}
+addEcart xi = do
+  p <- get
+  put $ p{getEcart = xi:getEcart p}
+  
+addArt ai = do
+  p <- get
+  
+  put $ p{getArt = ai: getArt p,
+          getC = getC p // [(ai,-infty)]}
 --fonction qui a une liste de couple (indice,valeur) associe "valeur*x indice"
 affLigne l = let affElem (a,b) = if b>0 then " + "++(show b)++" x"++(show a)
                                  else if b<0 then " - "++drop 1 (show b)++" x"++(show a)
@@ -78,7 +92,7 @@ setCi xi ci = do
   p <- get
   put $ p{getC = getC p // [(xi,ci)]}
 
-emptyPb = LinearPb (array ((0,0),(0,0)) [((0,0),0)]) (array (0,0) [(0,0)]) (array (0,0) [(0,0)]) 0
+emptyPb = LinearPb (array ((0,0),(0,0)) [((0,0),0)]) (array (0,0) [(0,0)]) (array (0,0) [(0,0)]) 0 [] []
 
 
 

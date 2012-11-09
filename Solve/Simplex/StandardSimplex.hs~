@@ -1,6 +1,6 @@
-module StandardSimplex where
+module Solve.LP.StandardSimplex where
 
-import LinearPb
+import Solve.LP.LinearPb
 import Data.List
 import Control.Monad.State
 import Data.Array

@@ -27,16 +27,35 @@ setObj crit tuples =  foldM (\_ (xi,ci) -> setCi xi ci) () tuples'
  son indice. -}
 addConstraint   :: Ctr -> Constraint -> LinearPbS (Maybe DVar)
 addConstraint ci c =   case c of
-    LowerOrEqual clist bi -> do 
-      [xi] <- newVars 1
-      setCtr ci ((xi,1):clist) bi
-      return $ Just xi
-    GreaterOrEqual clist bi -> do
-      [xi] <- newVars 1
-      setCtr ci ((xi,1):(map (\(xi,ai) -> (xi, -ai)) clist)) (- bi)
-      return $ Just xi
+    LowerOrEqual clist bi -> if bi >= 0
+      then do
+        [xi] <- newVars 1
+        addEcart xi
+        setCtr ci ((xi,1):clist) bi
+        return $ Just xi
+      else do
+        [xi,yi] <- newVars 2
+        addEcart xi
+        addArt yi
+        setCtr ci ((yi,1):(xi,-1):map (\(xk,ak) -> (xk, -ak) ) clist) (-bi)
+        return $ Just xi    
+        
+    GreaterOrEqual clist bi -> if bi <= 0 
+      then do
+        [xi] <- newVars 1
+        addEcart xi
+        setCtr ci ((xi,1):(map (\(xi,ai) -> (xi, -ai)) clist)) (- bi)
+        return $ Just xi
+      else do
+        [xi,yi] <- newVars 2
+        addEcart xi
+        addArt yi
+        setCtr ci ((xi,-1):(yi,1):clist) bi
+        return $ Just xi
     Equal clist bi -> do
-      setCtr ci clist bi
+      [yi] <- newVars 1
+      addArt yi
+      setCtr ci ((yi,1):clist) bi
       return $ Nothing
   
 please :: LinearPbS ()  
@@ -81,6 +100,8 @@ dual = do
                  (array (n0,n1) $ zip [n0..n1] $ repeat 0)
                  (array (m0,m1) $ zip [m0..m1] $ repeat 0)
                  0
+                 []
+                 []
   setObj Minimize (assocs $ getB p)
   foldM (\_ xi -> addConstraint xi $ [(ci,a ! (ci,xi)) | ci <- [m0..m1]] `GreaterOrEqual`   ((getC p) ! xi)) Nothing [n0..n1]
   return ()
