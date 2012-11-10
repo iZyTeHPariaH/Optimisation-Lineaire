@@ -58,6 +58,9 @@ addConstraint ci c =   case c of
       setCtr ci ((yi,1):clist) bi
       return $ Nothing
   
+addConstraintList :: [(Ctr, Constraint)] -> LinearPbS [(Ctr,Maybe DVar)]
+addConstraintList clist = foldM (\a (ci,ct) -> addConstraint ci ct >>= \v -> return ((ci,v):a)) [] clist
+
 please :: LinearPbS ()  
 please = do
   p <- get
