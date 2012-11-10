@@ -9,7 +9,7 @@ import qualified Data.Map as M
 import Model.Model
 import Solve.LP.LinearPb
 import Solve.LP.LPBuild
-
+import Solve.Simplex.Dual
 
 type IndiceSommet = Integer
 type Arc = (IndiceSommet, IndiceSommet)
@@ -37,7 +37,12 @@ ajouterArc si sj dij = do
                                   (sj, sommetj{predecesseurs = si:predecesseurs sommetj})],
          arcs = (M.insert (si,sj) dij $ arcs gr)}
   
-  
+forceCtr :: Ctr -> Constraint -> LinearPbS [DVar] 
+forceCtr ci (clist `LowerOrEqual` bi) = do 
+  [e] <- newVars 1
+  setCtr ci ((e,1):clist) bi
+  return [e]
+
 pertPb    :: Graphe -> ModelS ()
 pertPb gr = do
   let somm = sommets gr
@@ -47,7 +52,7 @@ pertPb gr = do
   
   let sTab = array (s1,sn) (zip [s1..sn] dvar)
       ctrMax = [[(ti,1), (tmax, -1)] `LowerOrEqual` 0 | ti <- dvar]
-      ctrDebut = [ [(tj,1), (ti, -1)] `GreaterOrEqual` val |   i <- [s1..sn],
+      ctrDebut = [ [(ti,1), (tj, -1)] `LowerOrEqual` (- val) |   i <- [s1..sn],
                                                                let si = somm ! i,
                                                                j <- successeurs si,
                                                                let sj = somm ! j
@@ -60,7 +65,7 @@ pertPb gr = do
          pour toute tache i, ti < tmax -}
   liftModel $ setObj Minimize [(tmax,1)]
   ctrs <- liftModel $ newCtrs $ fromIntegral $ length ctrTot
-  liftModel $ addConstraintList $ zip ctrs ctrTot
+  liftModel $ foldM (\_ (ci,ctr) -> forceCtr ci ctr) [] $ zip ctrs ctrTot
   
   setLinName tmax "Tmax"
   foldM (\_ (si,ti) -> setLinName ti $ "S" ++ show si ) () (assocs sTab)
