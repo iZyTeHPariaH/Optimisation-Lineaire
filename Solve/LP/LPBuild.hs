@@ -22,7 +22,7 @@ setObj crit tuples =  foldM (\_ (xi,ci) -> setCi xi ci) () tuples'
             Maximize -> tuples
             Minimize -> map (\ (xi,ci) -> (xi, -ci)) tuples
 
-{- Ajoute la contrainte spécifiée au problème.
+{- Normalise puis ajoute la contrainte spécifiée au problème.
  S'il est nécessaire d'introduire une variable d'écart, la fonction retourne
  son indice. -}
 addConstraint   :: Ctr -> Constraint -> LinearPbS (Maybe DVar)
@@ -57,10 +57,21 @@ addConstraint ci c =   case c of
       addArt yi
       setCtr ci ((yi,1):clist) bi
       return $ Nothing
-  
+
+{- Normalise et ajoute successivement les contraintes d'une liste -}  
 addConstraintList :: [(Ctr, Constraint)] -> LinearPbS [(Ctr,Maybe DVar)]
 addConstraintList clist = foldM (\a (ci,ct) -> addConstraint ci ct >>= \v -> return ((ci,v):a)) [] clist
 
+{- Ajoute une contrainte sans la normaliser (utile pour appliquer l'algorithme dual)-}
+forceCtr :: Ctr -> Constraint -> LinearPbS [DVar] 
+forceCtr ci (clist `LowerOrEqual` bi) = do 
+  [e] <- newVars 1
+  setCtr ci ((e,1):clist) bi
+  return [e]
+
+{- Nettoie le problème en supprimant les artefacts créés à partir du problème vide.
+ ATTENTION : Il est impératif d'utiliser la fonction une et une seule fois lors de la création
+             d'un problème.-}
 please :: LinearPbS ()  
 please = do
   p <- get
@@ -71,7 +82,8 @@ please = do
           getB = array (m0+1,m1) (tail $ assocs $ getB p),
           getC = array (n0+1, n1) (tail $ assocs $ getC p),
           getZ = 0}
-    
+
+{- Extrait la base actuelle du problème. -}    
 extraireSolution :: LinearPbS CoeffList
 extraireSolution = do
   p <- get
@@ -84,30 +96,7 @@ extraireSolution = do
                          length pivs == 1,
                          1 == (snd $ head pivs)]
   return base
--- Calcul du dual d'un problème : on passe de Max sc <= à Min sc >= ou réciproquement
-{-
-dual :: LinearPbS ()
-dual = do
-  p <- get
-  let ((m0,n0), (m1,n1)) = bounds $ getA p
-  put $ p{getA = array ((n0,m0), (n1,m1)) [((i,j),val) | i <- [n0..n1], j <- [m0..m1], let val = getA p ! (j,i)],
-          getB = getC p,
-          getC = getB p} -}
 
-dual :: LinearPbS ()
-dual = do
-  p <- get
-  let a = getA p
-      ((m0,n0),(m1,n1)) = bounds a
-  put $ LinearPb (array ((n0,m0),(n1,m1)) [((i,j),0) | i <- [n0..n1], j <- [m0..m1]])
-                 (array (n0,n1) $ zip [n0..n1] $ repeat 0)
-                 (array (m0,m1) $ zip [m0..m1] $ repeat 0)
-                 0
-                 []
-                 []
-  setObj Minimize (assocs $ getB p)
-  foldM (\_ xi -> addConstraint xi $ [(ci,a ! (ci,xi)) | ci <- [m0..m1]] `GreaterOrEqual`   ((getC p) ! xi)) Nothing [n0..n1]
-  return ()
 
 
       

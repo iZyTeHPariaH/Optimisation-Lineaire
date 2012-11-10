@@ -25,7 +25,7 @@ echelonner (ipiv,jpiv) piv = do
     
 
 
--- Résoud le problème standard max sc <=
+-- Résouds le problème standard max sc <=
 simplex :: LinearPbS OptAns
 simplex = do
   p <- get

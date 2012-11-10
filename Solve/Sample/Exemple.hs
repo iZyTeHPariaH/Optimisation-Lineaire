@@ -7,6 +7,11 @@ import Solve.Simplex.StandardSimplex
 import Control.Monad.State
 import Data.Array
 
+{- Max x1 + 2x2
+ sc 2x1 + x2 <= 14
+    -x1 + 2x2 <= 8
+    2x1 - x2 <= 10 -}
+
 p1 =  do
   [x1,x2] <- newVars 2
   [c1,c2,c3] <- newCtrs 3
@@ -16,7 +21,11 @@ p1 =  do
   addConstraint c3 $ [(x1,2),(x2,-1)] `LowerOrEqual` 10
   please
   return ()
-  
+
+{- Max -7x1 + 3x2
+ sc -x1 - x2 <= -2
+    x1 + 2x2 <= 2
+    8x1 + x2 <= 8 -}  
 p2 = do
   [x1,x2] <- newVars 2
   [c1,c2,c3] <- newCtrs 3
@@ -26,7 +35,11 @@ p2 = do
   addConstraint c3 $ [(x1,8),(x2,1)]  `LowerOrEqual` 8
   please
   
-  
+
+{- Max 5x1 + 6x2
+ sc -x1 + x2 <= 4
+    5x1 + 3x2 <= 60
+    x2 >= 5 -}  
 p3 = do  
   [x1,x2,a1] <- newVars 3
   [c1,c2,c3] <- newCtrs 3

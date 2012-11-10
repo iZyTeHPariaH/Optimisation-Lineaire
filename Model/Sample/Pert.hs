@@ -37,21 +37,27 @@ ajouterArc si sj dij = do
                                   (sj, sommetj{predecesseurs = si:predecesseurs sommetj})],
          arcs = (M.insert (si,sj) dij $ arcs gr)}
   
-forceCtr :: Ctr -> Constraint -> LinearPbS [DVar] 
-forceCtr ci (clist `LowerOrEqual` bi) = do 
-  [e] <- newVars 1
-  setCtr ci ((e,1):clist) bi
-  return [e]
 
-pertPb    :: Graphe -> ModelS ()
+{- Convertit un graphe en un modèle : 
+         Min tmax
+     sc  pour toute tache i, les successeurs ne peuvent commencer avant ti + di
+         pour toute tache i, ti < tmax -}
+pertPb    :: Graphe -> ModelS (OptAns, [(String,Double)])
 pertPb gr = do
+  -- On récupère les sommets et leur intervalle de valeurs
   let somm = sommets gr
       (s1,sn) = bounds somm
-      
+  -- On alloue autant de variables de décision que de sommets + 1 (pour modéliser le maximum des dates de début)    
   (tmax:dvar) <- liftModel $ newVars (sn - s1+2)
   
-  let sTab = array (s1,sn) (zip [s1..sn] dvar)
+  let -- On crée un tableau associant à chaque sommet sa variable de décision
+      sTab = array (s1,sn) (zip [s1..sn] dvar)
+      
+      -- On ajoute la contrainte du maximum (la date tmax >= ti pour tout sommet i)
       ctrMax = [[(ti,1), (tmax, -1)] `LowerOrEqual` 0 | ti <- dvar]
+      
+      -- Pour chaque sommet i, la date de début de chaque successeurs j ne peut être inferieure à ti + di
+      --   V i, Vj in successeurs i, ti - tj <= -dj
       ctrDebut = [ [(ti,1), (tj, -1)] `LowerOrEqual` (- val) |   i <- [s1..sn],
                                                                let si = somm ! i,
                                                                j <- successeurs si,
@@ -60,17 +66,24 @@ pertPb gr = do
                                                                    ti = sTab ! i
                                                                    tj = sTab ! j ]
       ctrTot = ctrMax   ++ ctrDebut
-  {- Min tmax
-     sc  pour toute tache i, les successeurs ne peuvent commencer avant ti + di
-         pour toute tache i, ti < tmax -}
+  -- On minimise la plus grande date de début (car c'est celle de la tâche FIN)
   liftModel $ setObj Minimize [(tmax,1)]
+  -- On alloue suffisament de contraintes et on les applique
   ctrs <- liftModel $ newCtrs $ fromIntegral $ length ctrTot
   liftModel $ foldM (\_ (ci,ctr) -> forceCtr ci ctr) [] $ zip ctrs ctrTot
   
+  -- On nomme les variables par commodité
   setLinName tmax "Tmax"
   foldM (\_ (si,ti) -> setLinName ti $ "S" ++ show si ) () (assocs sTab)
   liftModel please
-  return ()
+  
+  -- On résoud le problème par l'algorithme dual
+  ans <- liftModel simplexDual
+  m <- get
+  base <- liftModel extraireSolution
+  
+  -- On extrait les solutions de base
+  return (ans, [(fromJust nom,val) | (xi,val) <- base, let nom = xi `M.lookup` getLinearDVar m, isJust nom])
   
 buildG1 = do
   ajouterArc 0 1 0

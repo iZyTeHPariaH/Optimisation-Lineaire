@@ -13,7 +13,6 @@ type Coefficient = Double
 
 infty = let (mm,mM) = floatRange (0::Double)
         in ((2^(mM-1))::Double) + 1
---infty = 999    
 
 data OptAns = Opt | Infinite | Err
           deriving Show

@@ -8,6 +8,8 @@ import Control.Monad.State
 import Data.Array
 import Data.List
 
+{- Application de l'algorithme dual du simplexe à partir
+ d'une base optimale non réalisable. -}
 simplexDual :: LinearPbS OptAns
 simplexDual = do
   p <- get

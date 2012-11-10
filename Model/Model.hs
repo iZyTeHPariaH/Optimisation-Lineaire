@@ -18,11 +18,13 @@ type ModelS = State Model
 
 emptyModel = Model emptyPb empty empty
 
+{- Affecte une étiquette à une variable de décision -}
 setLinName :: DVar -> String -> ModelS ()
 setLinName xi label = do
   m <- get
   put $ m{getLinearDVar = insert xi label (getLinearDVar m)}
 
+{- Résouds un modèle et en extrait les solutions (méthode des pénalités) -}
 solve :: ModelS SimplexAns
 solve = do
   model <- get
@@ -36,7 +38,7 @@ solve = do
                                     else (show xi,v):a) [] base
   return $ SimplexAns ans final (fromList sols)
   
-  
+{- Applique une transformation sur le problème du modèle -}  
 liftModel :: LinearPbS t -> ModelS t
 liftModel act = do
   model <- get
