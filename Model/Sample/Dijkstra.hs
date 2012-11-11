@@ -1,4 +1,4 @@
-module Model.Sample.Dijstra where
+module Model.Sample.Dijkstra where
 
 
 import Control.Monad
