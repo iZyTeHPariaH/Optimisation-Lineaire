@@ -1,6 +1,8 @@
 module Model.Sample.Workflow where
 
 import Data.Array
+import Control.Monad.State
+
 import Solve.IP.IntegerPb
 import Solve.LP.LinearPb
 import Solve.LP.LPBuild
@@ -32,6 +34,7 @@ w1 = Workflow {jobs = [1..3],
                                        [((3,j,k),val) | ((j,k),val) <- transfertsT3],
                successeurs = array (1,3) [(1,[2]), (2,[]), (3, [])]}
 
+{- Overflow à l'écriture -}
 workflow :: Workflow -> IntegerPbS ()
 workflow w = do
   let n = fromIntegral $ length $ jobs w
@@ -120,4 +123,10 @@ workflow w = do
                    k <- [1..tmax -1],
                    let gammaijk = gammaTab ! (i,j,k)
                        dij = durees w ! (i,j)] 
+       ctrTot1 = ctrsMax ++ ctrdi ++ ctrYR ++ ctrPert ++ concat ctrGamma
+       ctrTot2 = ctrY ++ ctrEx
+  contraintes <- liftIP $ newCtrs $ fromIntegral $ length $ ctrTot1
+  contraintesEx <- liftIP $ newCtrs $ fromIntegral $ length $ ctrTot2
+  foldM (\_ (ci,ct) -> liftIP $ forceCtr ci ct) [] $ zip contraintes ctrTot1
+  foldM (\_ (ci,ct) -> liftIP $ addConstraint ci ct) Nothing $ zip contraintesEx ctrTot2
   return () 
