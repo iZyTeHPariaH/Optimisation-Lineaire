@@ -13,12 +13,30 @@ data Workflow = Workflow { jobs :: [Jobs],
                            durees :: Array (Jobs,Machine) Double,
                            dureesTransferts :: Array (Jobs, Machine, Machine) Double,
                            successeurs :: Array Jobs [Jobs]}
-                
+           
+transfertsT1 = [((1,1),0), ((1,2),2),
+                ((2,1),3), ((2,2),0)]
+transfertsT2 = [((1,1),0), ((1,2),2),
+                ((2,1),1), ((2,2),0)]
+transfertsT3 = [((1,1),0), ((1,2),4),
+                ((2,1),3), ((2,2),0)]
+w1 = Workflow {jobs = [1..3],
+               machines = [1..2],
+               temps = [0..12+14+10],
+               durees = array ((1,1),(3,2)) [ ((1,1), 10),((1,2), 12), 
+                                              ((2,1),  6), ((2,2),14),
+                                              ((3,1),10), ((3,2),9)],
+               dureesTransferts = array ((1,1,1),(3,2,2)) $
+                                       [((1,j,k),val) | ((j,k),val) <- transfertsT1] ++
+                                       [((2,j,k),val) | ((j,k),val) <- transfertsT2] ++
+                                       [((3,j,k),val) | ((j,k),val) <- transfertsT3],
+               successeurs = array (1,3) [(1,[2]), (2,[]), (3, [])]}
+
 workflow :: Workflow -> IntegerPbS ()
 workflow w = do
   let n = fromIntegral $ length $ jobs w
       m = fromIntegral $ length $ machines w
-      tmax = fromIntegral $ length $ temps w
+      tmax = fromIntegral $ (length $ temps w) - 1
   -- Allocation des variables
   dvars <- liftIP $ newVars $ fromIntegral n
   yvars <- liftIP $ newVars $ fromIntegral $ n*m
@@ -102,4 +120,4 @@ workflow w = do
                    k <- [1..tmax -1],
                    let gammaijk = gammaTab ! (i,j,k)
                        dij = durees w ! (i,j)] 
-  return ()
+  return () 
