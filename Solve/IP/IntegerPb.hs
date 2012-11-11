@@ -20,6 +20,8 @@ data IntegerPb = IntegerPb {getRelax :: LinearPb,
 
 type IntegerPbS = State IntegerPb
 
+emptyIp = IntegerPb emptyPb [] [] [] emptyPb
+
 {- Exécute une opération sur le problème relaxé (on relache les contraintes d'intégrité)-}
 liftIP     :: LinearPbS t -> IntegerPbS t
 liftIP act =  do
