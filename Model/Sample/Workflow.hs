@@ -126,16 +126,31 @@ gamma_ij' =1 => somme_t rijt = dij
 gamma_ij' * dij <= somme_t rij
 
 gamma_ij =1 => gamma'_ij = 1
-gamma_ij <= gamam'_ij
+gamma_ij <= gamùa'_ij
 
 
 MEMO : Essayer de chercher une CNS pour que cette condition suffise à contraindre la consécutivité.
 -----}
-      nbGamma = sum [fromInteger tmax - dij +1 | i <- [1..n], j <- [1..m], let dij = durees w ! (i,j)]
-  gamma <-ipNewIntegerVars $ truncate nbGamma
-  
-  let  gammaTab = array ((1,1,0), (n,m,tmax -1)) $ 
-                  zip [(i,j,k) | i <- [1..n], j <- [1..m], k <- [0..tmax]] gamma
+      nbGamma = n*m
+  gamma <-ipNewIntegerVars  nbGamma
+  gamma' <- ipNewIntegerVars nbGamma
+  let  gammaTab =  array ((1,1),(n,m)) $ zip [(i,j) | i <- [1..n], j <- [1..m]] gamma
+       gammaTab' =  array ((1,1),(n,m)) $ zip [(i,j) | i <- [1..n], j <- [1..m]] gamma'
+       {-somme_t rijt >=1 => gamma_ij = 1                                                                                                                                                                                        
+         1*gamma_ij <= somme_t_rijt  <= M.gamma_ij  -}
+       ctrGamma1 = do
+         i <- [1..n]
+         j <- [1..m]
+         let gammaij = gammaTab ! (i,j) 
+             gammaij' = gammaTab' ! (i,j)
+             sommerijt = [(rTab ! (i,j,t),1) | t <- [0..tmax]]
+             sommeMrijt = [(rTab ! (i,j,t), -1) | t <- [0..tmax]]
+             ct1 = ((gammaij,1):sommeMrijt) `LowerOrEqual` 0
+             ct1' = ((gammaij,-infty):sommerijt) `LowerOrEqual` 0
+             ct2 = ((gammaij',durees w ! (i,j)):sommeMrijt) `LowerOrEqual` 0
+             ct3 = [(gammaij,1),(gammaij',-1)] `LowerOrEqual` 0
+           
+         return [ct1,ct1',ct2,ct3]
        {-ctrGamma = [ [[(gammaijk, -1),(rTab ! (i,j,k), 1), (rTab ! (i,j,k-1),1)]        
                                      `LowerOrEqual` 1,
                      ((gammaijk,dij):[(rijt,-1) | t <- [k.. k+(truncate dij)],
@@ -153,7 +168,7 @@ MEMO : Essayer de chercher une CNS pour que cette condition suffise à contraind
                        dij = durees w ! (i,j)]-} 
        --ctrYR = []
        --ctrEx = []
-       ctrGamma = []
+       ctrGamma = ctrGamma1
        ctrTot1 = ctrsMax ++ ctrdi ++ ctrPert ++ concat ctrGamma
        ctrTot2 = ctrY ++ ctrEx ++ ctrYR
   contraintes <- liftIP $ newCtrs $ fromIntegral $ length $ ctrTot1
