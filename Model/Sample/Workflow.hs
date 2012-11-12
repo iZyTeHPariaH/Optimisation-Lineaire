@@ -44,7 +44,7 @@ workflow w = do
   dvars <- liftIP $ newVars $ fromIntegral n
   yvars <- liftIP $ newVars $ fromIntegral $ n*m
   xvars <- liftIP $ newVars $ fromIntegral $ n*m
-  rvars <- liftIP $ newVars $ fromIntegral $ n*m*tmax
+  rvars <- liftIP $ newVars $ fromIntegral $ n*m*(tmax+1)
   [u] <- liftIP $ newVars 1
   
   let  -- On crée un tableau qui associe la variable de décision aux chaques triplets r(i,j,k) 
@@ -70,12 +70,18 @@ workflow w = do
               
   -- (2) y_ij = max (r_i_j_t )sur t
   --Pour tout i , j, yij est superieur à r_ijt, pour tout t
-      ctrYR = [ [(yij, -1), (rijt, 1)] `LowerOrEqual` 0 | i <- [1..n],
+{-      ctrYR = [ [(yij, -1), (rijt, 1)] `LowerOrEqual` 0 | i <- [1..n],
                                                           j <- [1..m],
                                                           t <- [1..tmax],
                                                           let yij = yTab ! (i,j)
                                                               rijt = rTab ! (i,j,t)]
-              
+  -}            
+      ctrYR = [((yij,1):[(rijt,-1/dij) | t <- [0..tmax], 
+                                        let rijt = rTab ! (i,j,t)]) `Equal` 0 
+                | i <- [1..n],
+                  j <- [1..m],
+                  let yij = yTab ! (i,j)
+                      dij = durees w ! (i,j)]
   --(3) Somme_ j (y_i,j)=1 pour tout i
       ctrY = [ [(yij,1) | j <- [1..m],
                           let yij = yTab ! (i,j)] `Equal` 1 
@@ -93,7 +99,7 @@ workflow w = do
   -- (5') : somme(r_i,j,k)_j,k = di , pour tout i 
       ctrEx = [ ((di, -1):[(rijk,1) |  
                           j <- [1..m],
-                          k <- [1..tmax],
+                          k <- [0..tmax],
                           let rijk = rTab ! (i,j,k)]) `Equal` 0 
               | i <- [1..n], 
                 let di = dTab ! i]
@@ -103,12 +109,34 @@ workflow w = do
           pour tout k : gammaijk * dij <= somme [ rijt | t <- [k, k+ dij -1]] <= M*gamma ijk
           pour tout i, pour tout j, pour tout k : r_i,j,k+ r_i,j,k-1- gamma i,j,k <= 1
 -}
+{-----
+ Il faut forcer la consécutivité et l'execution sur la meme machine
+ 
+ Exectution sur la meme machine
+ pour tout i, j
+ SI somme _t (r_i,j,t) >=1 Alors  somme _t (r_i,j,t)=d_i,j
+
+gamma_ij = 1 sSi somme_t rijt >= 1
+gamma'_ij = 1 => somme _t rijt = dij
+
+somme_t rijt >=1 => gamma_ij = 1
+1*gamma_ij <= somme_t_rijt  <= M.gamma_ij
+
+gamma_ij' =1 => somme_t rijt = dij
+gamma_ij' * dij <= somme_t rij
+
+gamma_ij =1 => gamma'_ij = 1
+gamma_ij <= gamam'_ij
+
+
+MEMO : Essayer de chercher une CNS pour que cette condition suffise à contraindre la consécutivité.
+-----}
       nbGamma = sum [fromInteger tmax - dij +1 | i <- [1..n], j <- [1..m], let dij = durees w ! (i,j)]
   gamma <-ipNewIntegerVars $ truncate nbGamma
   
   let  gammaTab = array ((1,1,0), (n,m,tmax -1)) $ 
                   zip [(i,j,k) | i <- [1..n], j <- [1..m], k <- [0..tmax]] gamma
-       ctrGamma = [ [[(gammaijk, -1),(rTab ! (i,j,k), 1), (rTab ! (i,j,k-1),1)]        
+       {-ctrGamma = [ [[(gammaijk, -1),(rTab ! (i,j,k), 1), (rTab ! (i,j,k-1),1)]        
                                      `LowerOrEqual` 1,
                      ((gammaijk,dij):[(rijt,-1) | t <- [k.. k+(truncate dij)],
                                                  let rijt = rTab ! (i,j,t) 
@@ -122,9 +150,12 @@ workflow w = do
                    j <- [1..m],
                    k <- [1..tmax -1],
                    let gammaijk = gammaTab ! (i,j,k)
-                       dij = durees w ! (i,j)] 
-       ctrTot1 = ctrsMax ++ ctrdi ++ ctrYR ++ ctrPert ++ concat ctrGamma
-       ctrTot2 = ctrY ++ ctrEx
+                       dij = durees w ! (i,j)]-} 
+       --ctrYR = []
+       --ctrEx = []
+       ctrGamma = []
+       ctrTot1 = ctrsMax ++ ctrdi ++ ctrPert ++ concat ctrGamma
+       ctrTot2 = ctrY ++ ctrEx ++ ctrYR
   contraintes <- liftIP $ newCtrs $ fromIntegral $ length $ ctrTot1
   contraintesEx <- liftIP $ newCtrs $ fromIntegral $ length $ ctrTot2
   foldM (\_ (ci,ct) -> liftIP $ forceCtr ci ct) [] $ zip contraintes ctrTot1
