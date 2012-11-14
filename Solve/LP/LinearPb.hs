@@ -15,7 +15,7 @@ infty = let (mm,mM) = floatRange (0::Double)
         in ((2^(mM-1))::Double) + 1
 
 data OptAns = Opt | Infinite | Err
-          deriving Show
+          deriving (Show, Eq)
 
 data LinearPb = LinearPb { getA :: Array2D Double,
                            getB :: Array1D Double,
