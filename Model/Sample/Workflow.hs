@@ -1,6 +1,7 @@
 module Model.Sample.Workflow where
 
 import Data.Array
+import Debug.Trace
 import Control.Monad.State
 
 import Solve.IP.IntegerPb
@@ -171,6 +172,7 @@ MEMO : Essayer de chercher une CNS pour que cette condition suffise à contraind
        ctrGamma = ctrGamma1
        ctrTot1 = ctrsMax ++ ctrdi ++ ctrPert ++ concat ctrGamma
        ctrTot2 = ctrY ++ ctrEx ++ ctrYR
+  trace ("nb contraintes = " ++ show (length $ ctrTot1 ++ ctrTot2)) $ return ()
   contraintes <- liftIP $ newCtrs $ fromIntegral $ length $ ctrTot1
   contraintesEx <- liftIP $ newCtrs $ fromIntegral $ length $ ctrTot2
   foldM (\_ (ci,ct) -> liftIP $ forceCtr ci ct) [] $ zip contraintes ctrTot1
