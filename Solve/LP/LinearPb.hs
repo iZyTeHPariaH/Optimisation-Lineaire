@@ -31,7 +31,8 @@ addArt ai = do
   p <- get
   
   put $ p{getArt = ai: getArt p,
-          getC = getC p // [(ai,-infty)]}
+          getC = getC p // [(ai,-infty)],
+          getZ = -infty}
 --fonction qui a une liste de couple (indice,valeur) associe "valeur*x indice"
 affLigne l = let affElem (a,b) = if b>0 then " + "++(show b)++" x"++(show a)
                                  else if b<0 then " - "++drop 1 (show b)++" x"++(show a)

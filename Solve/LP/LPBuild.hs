@@ -80,8 +80,7 @@ please = do
   put $ p{getA = array ((m0+1,n0+1), (m1,n1)) [(coord,val) | (coord@(i,j),val) <- assocs $ a,
                                                              i > 0, j > 0],
           getB = array (m0+1,m1) (tail $ assocs $ getB p),
-          getC = array (n0+1, n1) (tail $ assocs $ getC p),
-          getZ = 0}
+          getC = array (n0+1, n1) (tail $ assocs $ getC p)}
 
 {- Extrait la base actuelle du problème. -}    
 extraireSolution :: LinearPbS CoeffList
