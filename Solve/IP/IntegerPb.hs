@@ -139,7 +139,7 @@ knapsack k = do
  --liftIP $  foldM (\_ (ct,var) -> addConstraint ct $ [(var,1)] `LowerOrEqual` 1) Nothing (zip boolCt dvars)
  
  liftIP please 
- buildCurrentLP
+-- buildCurrentLP
  return ()
  
 k1 = KnapSack [10,8,5] [6,5,4] 9
@@ -148,7 +148,8 @@ k1 = KnapSack [10,8,5] [6,5,4] 9
 ip1 = snd $ runState (knapsack k1) emptyIp
 
 solveIP ip = do
-     (pb, opt) <- runCont (branchbound pBranch pBorne pEval ip (ip,-infty) Max) return
+     let ip' = snd $ runState buildCurrentLP ip
+     (pb, opt) <- runCont (branchbound pBranch pBorne pEval ip' (ip',-infty) Max) return
      print pb
      print opt
      print $ fst $ runState (liftCurrentIP extraireSolution) pb
