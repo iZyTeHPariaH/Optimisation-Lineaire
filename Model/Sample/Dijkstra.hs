@@ -8,6 +8,7 @@ import Data.Maybe
 import qualified Data.Map as M
 
 import Model.Model
+import Model.Sample.Pert
 import Model.Sample.Graph
 
 import Solve.LP.LinearPb
@@ -52,8 +53,8 @@ dijkstra gr = do
    
    -- On alloue et on affecte les contraintes
    (c1:c2:ctr) <- liftModel $ newCtrs $ fromIntegral $ length ctTot
-   liftModel $ forceCtr c1 ct1
-   liftModel $ forceCtr c2 ctn
+   liftModel $ forceCtr [c1] ct1
+   liftModel $ forceCtr [c2] ctn
    liftModel $ foldM (\_ (ci,c) -> addConstraint ci c) Nothing  $ zip ctr cts
    
    -- On affecte des noms aux variables de décision importantes

@@ -175,10 +175,11 @@ MEMO : Essayer de chercher une CNS pour que cette condition suffise à contraind
        ctrTot2 = ctrY ++ ctrEx ++ ctrYR
   trace ("nb contraintes = " ++ show (length $ ctrTot1 ++ ctrTot2)) $ return ()
   contraintes <- liftIP $ newCtrs $ fromIntegral $ length $ ctrTot1
-  contraintesEx <- liftIP $ newCtrs $ fromIntegral $ length $ ctrTot2
-  foldM (\_ (ci,ct) -> liftIP $ forceCtr ci ct) [] $ zip contraintes ctrTot1
+  contraintesEx <- liftIP $ newCtrs $  fromIntegral $ length $ ctrTot2
+  contraintesEx' <- liftIP $ newCtrs $  fromIntegral $ length $ ctrTot2
+  foldM (\_ (ci,ct) -> liftIP $ forceCtr [ci] ct) [] $ zip contraintes ctrTot1
 --  foldM (\_ (ci,ct) -> liftIP $ addConstraint ci ct) Nothing $ zip contraintesEx ctrTot2
-  foldM (\_ (ci,ct) -> liftIP $ forceCtr ci ct) [] $ zip contraintesEx ctrTot2
+  foldM (\_ ((ci,ci'),ct) -> liftIP $ forceCtr [ci,ci'] ct) [] $ zip (zip contraintesEx contraintesEx') ctrTot2
   
   liftIP please
   return () 

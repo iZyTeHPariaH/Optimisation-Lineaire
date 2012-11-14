@@ -49,7 +49,7 @@ pertPb gr = do
   liftModel $ setObj Minimize [(tmax,1)]
   -- On alloue suffisament de contraintes et on les applique
   ctrs <- liftModel $ newCtrs $ fromIntegral $ length ctrTot
-  liftModel $ foldM (\_ (ci,ctr) -> forceCtr ci ctr) [] $ zip ctrs ctrTot
+  liftModel $ foldM (\_ (ci,ctr) -> forceCtr [ci] ctr) [] $ zip ctrs ctrTot
   
   -- On nomme les variables par commodité
   setLinName tmax "Tmax"

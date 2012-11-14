@@ -13,9 +13,7 @@ import Solve.Simplex.Dual
 import Solve.Simplex.StandardSimplex
 
 data IntegerPb = IntegerPb {getRelax :: LinearPb,
-                            getLinear :: [DVar],
                             getInteger :: [DVar],
-                            getFixedInteger :: [DVar],
                             floatIntegerVar :: [(DVar,Coefficient)],
                             currentLP :: LinearPb}
           deriving Show
@@ -23,7 +21,7 @@ data IntegerPb = IntegerPb {getRelax :: LinearPb,
 
 type IntegerPbS = State IntegerPb
 
-emptyIp = IntegerPb emptyPb [] [] [] [] emptyPb
+emptyIp = IntegerPb emptyPb [] [] emptyPb
 
 {- Exécute une opération sur le problème relaxé (on relache les contraintes d'intégrité)-}
 liftIP     :: LinearPbS t -> IntegerPbS t
@@ -40,15 +38,6 @@ liftCurrentIP act =  do
   put $ ip{currentLP = lp'}
   return ans
 
-
-{- Génère n variables linéaires -}
-ipNewLinearVars   :: Integer -> IntegerPbS [DVar]
-ipNewLinearVars n =  do
-  dvar <- liftIP $ newVars n
-  ip <- get
-  put $ ip{getLinear = dvar ++ getLinear ip}
-  return dvar
-
 {- Génère n variables entières -}
 ipNewIntegerVars   :: Integer -> IntegerPbS [DVar]
 ipNewIntegerVars n =  do
@@ -56,15 +45,6 @@ ipNewIntegerVars n =  do
   ip <- get
   put $ ip {getInteger = dvar ++ getInteger ip}
   return dvar
-
-ipSetIntegerVar :: DVar -> Integer -> IntegerPbS ()
-ipSetIntegerVar xi k = do
-  [ci] <- liftIP $ newCtrs 1
-  liftIP $ forceCtr ci $ [(xi,1)] `Equal` (fromIntegral k)
-  ip <- get
-  put $ ip{getInteger = getInteger ip \\ [xi],
-           getFixedInteger = xi : getFixedInteger ip}
-  
 
 {- Le cas trivial est atteint quand toutes les variables entières en base
    respectent les contraintes d'intégrité.
@@ -92,8 +72,8 @@ pBranch' = do
       -- NB : Ne considérer que les contraintes réalisables
       ct1 = [(dvar,1)] `LowerOrEqual` (fromIntegral $ truncate val)
       ct2 = [(dvar,-1)] `LowerOrEqual`  ( - 1 - (fromIntegral $ truncate val))
-  return $ map snd [ runState ((liftIP $ forceCtr ct ct1) >> buildCurrentLP) ip,
-                     runState ((liftIP $ forceCtr ct ct2) >> buildCurrentLP) ip]    
+  return $ map snd [ runState ((liftIP $ forceCtr [ct] ct1) >> buildCurrentLP) ip,
+                     runState ((liftIP $ forceCtr [ct] ct2) >> buildCurrentLP) ip]    
  
 pBranch p = fst $ runState pBranch' p
 
@@ -135,7 +115,7 @@ knapsack k = do
  [ct] <- liftIP $ newCtrs 1
 -- boolCt <- liftIP $ newCtrs nbVars
  
- liftIP $ forceCtr ct $ (zip dvars (map (*(-1)) (couts k))) `LowerOrEqual` (- capacite k)
+ liftIP $ forceCtr [ct] $ (zip dvars (map (*(-1)) (couts k))) `LowerOrEqual` (- capacite k)
  --liftIP $  foldM (\_ (ct,var) -> addConstraint ct $ [(var,1)] `LowerOrEqual` 1) Nothing (zip boolCt dvars)
  
  liftIP please 
