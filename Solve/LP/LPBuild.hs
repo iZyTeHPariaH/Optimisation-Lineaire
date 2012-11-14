@@ -69,6 +69,12 @@ forceCtr ci (clist `LowerOrEqual` bi) = do
   setCtr ci ((e,1):clist) bi
   return [e]
 
+forceCtr ci (clist `Equal` bi) = do
+  [e1,e2] <- newVars 2
+  [c'] <- newCtrs 1 -- A MODIFIER
+  setCtr ci ((e1,1):clist) bi
+  setCtr c' ((e1,1):(map (\(xi,vi) -> (xi, -vi)) clist )) bi
+  return [e1,e2]
 {- Nettoie le problème en supprimant les artefacts créés à partir du problème vide.
  ATTENTION : Il est impératif d'utiliser la fonction une et une seule fois lors de la création
              d'un problème.-}
