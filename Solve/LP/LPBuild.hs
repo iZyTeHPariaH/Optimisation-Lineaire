@@ -63,18 +63,21 @@ addConstraintList :: [(Ctr, Constraint)] -> LinearPbS [(Ctr,Maybe DVar)]
 addConstraintList clist = foldM (\a (ci,ct) -> addConstraint ci ct >>= \v -> return ((ci,v):a)) [] clist
 
 {- Ajoute une contrainte sans la normaliser (utile pour appliquer l'algorithme dual)-}
-forceCtr :: Ctr -> Constraint -> LinearPbS [DVar] 
-forceCtr ci (clist `LowerOrEqual` bi) = do 
+forceCtr :: [Ctr] -> Constraint -> LinearPbS [DVar] 
+forceCtr [ci] (clist `LowerOrEqual` bi) = do 
   [e] <- newVars 1
   setCtr ci ((e,1):clist) bi
   return [e]
 
-forceCtr ci (clist `Equal` bi) = do
-  [e1,e2] <- newVars 2
-  [c'] <- newCtrs 1 -- A MODIFIER
+forceCtr [ci,ci'] (clist `Equal` bi) = do
+  [e1,e2] <- newVars 2  
   setCtr ci ((e1,1):clist) bi
-  setCtr c' ((e1,1):(map (\(xi,vi) -> (xi, -vi)) clist )) bi
+  setCtr ci' ((e1,1):(map (\(xi,vi) -> (xi, -vi)) clist )) bi
   return [e1,e2]
+
+forceCtr [ci] (clist `GreaterOrEqual` bi) = do
+  [e] <- newVars 1
+  forceCtr [ci] $ (map (\ (xi,val) -> (xi,-val)) clist) `LowerOrEqual` (-bi)
 {- Nettoie le problème en supprimant les artefacts créés à partir du problème vide.
  ATTENTION : Il est impératif d'utiliser la fonction une et une seule fois lors de la création
              d'un problème.-}
