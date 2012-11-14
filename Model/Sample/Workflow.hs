@@ -150,8 +150,9 @@ MEMO : Essayer de chercher une CNS pour que cette condition suffise à contraind
              ct1' = ((gammaij,-infty):sommerijt) `LowerOrEqual` 0
              ct2 = ((gammaij',durees w ! (i,j)):sommeMrijt) `LowerOrEqual` 0
              ct3 = [(gammaij,1),(gammaij',-1)] `LowerOrEqual` 0
-           
-         return [ct1,ct1',ct2,ct3]
+             ctG = [(gammaij,1)] `LowerOrEqual` 1
+             ctG' = [(gammaij',1)] `LowerOrEqual` 1
+         return [ct1,ct1',ct2,ct3,ctG,ctG']
        {-ctrGamma = [ [[(gammaijk, -1),(rTab ! (i,j,k), 1), (rTab ! (i,j,k-1),1)]        
                                      `LowerOrEqual` 1,
                      ((gammaijk,dij):[(rijt,-1) | t <- [k.. k+(truncate dij)],
@@ -176,5 +177,10 @@ MEMO : Essayer de chercher une CNS pour que cette condition suffise à contraind
   contraintes <- liftIP $ newCtrs $ fromIntegral $ length $ ctrTot1
   contraintesEx <- liftIP $ newCtrs $ fromIntegral $ length $ ctrTot2
   foldM (\_ (ci,ct) -> liftIP $ forceCtr ci ct) [] $ zip contraintes ctrTot1
-  foldM (\_ (ci,ct) -> liftIP $ addConstraint ci ct) Nothing $ zip contraintesEx ctrTot2
+--  foldM (\_ (ci,ct) -> liftIP $ addConstraint ci ct) Nothing $ zip contraintesEx ctrTot2
+  foldM (\_ (ci,ct) -> liftIP $ forceCtr ci ct) [] $ zip contraintesEx ctrTot2
+  
+  liftIP please
   return () 
+
+ipWorkflow = snd $ runState (workflow w1) emptyIp
