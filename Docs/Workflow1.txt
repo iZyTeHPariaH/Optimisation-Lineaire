@@ -1,3 +1,17 @@
+int g'11;
+int g'12;
+int g'21;
+int g'22;
+int g'31;
+int g'32;
+
+int g11;
+int g12;
+int g21;
+int g22;
+int g31;
+int g32;
+
 nb variables = 28
 nb contraintes = 61
 Dimensions finales : (0,250)

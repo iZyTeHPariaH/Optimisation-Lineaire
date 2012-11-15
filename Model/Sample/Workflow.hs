@@ -198,7 +198,10 @@ MEMO : Essayer de chercher une CNS pour que cette condition suffise à contraind
 
   liftModelLP please
   dvarmap <- gets getDVarMap
+  -- Affichage du problème
   trace (concatMap (show' dvarmap) $ ctrTot1 ++ ctrTot2) $ return ()
+  trace (concat ["int g" ++ show i ++ show j ++ ";\n"| i <- [1..n], j <- [1..m]]) $ return ()
+  trace (concat ["int g'" ++ show i ++ show j ++ ";\n"| i <- [1..n], j <- [1..m]]) $ return ()
   return () 
 
 mWorkflow = snd $ runState (workflow w1) emptyModel
