@@ -4,6 +4,7 @@ import Data.Array
 import Debug.Trace
 import Control.Monad.State
 
+import Model.Model
 import Solve.IP.IntegerPb
 import Solve.LP.LinearPb
 import Solve.LP.LPBuild
@@ -36,17 +37,17 @@ w1 = Workflow {jobs = [1..3],
                successeurs = array (1,3) [(1,[2]), (2,[]), (3, [])]}
 
 {- Overflow à l'écriture -}
-workflow :: Workflow -> IntegerPbS ()
+workflow :: Workflow -> ModelS ()
 workflow w = do
   let n = fromIntegral $ length $ jobs w
       m = fromIntegral $ length $ machines w
       tmax = fromIntegral $ (length $ temps w) - 1
   -- Allocation des variables
-  dvars <- liftIP $ newVars $ fromIntegral n
-  yvars <- liftIP $ newVars $ fromIntegral $ n*m
-  xvars <- liftIP $ newVars $ fromIntegral $ n*m
-  rvars <- liftIP $ newVars $ fromIntegral $ n*m*(tmax+1)
-  [u] <- liftIP $ newVars 1
+  dvars <- liftModelLP $ newVars $ fromIntegral n
+  yvars <- liftModelLP $ newVars $ fromIntegral $ n*m
+  xvars <- liftModelLP $ newVars $ fromIntegral $ n*m
+  rvars <- liftModelLP $ newVars $ fromIntegral $ n*m*(tmax+1)
+  [u] <- liftModelLP $ newVars 1
   
   let  -- On crée un tableau qui associe la variable de décision aux chaques triplets r(i,j,k) 
     rTab = array ( (1,1,0),(n,m,tmax)) $ zip [(i,j,k) | i <- [1..n], j <- [1..m], k <- [0..tmax]] rvars
@@ -54,7 +55,7 @@ workflow w = do
     yTab = array ((1,1), (n,m)) $ zip [(i,j) | i <- [1..n], j <- [1..m]] yvars
     xTab = array ((1,1), (n,m)) $ zip [(i,j) | i <- [1..n], j <- [1..m]] xvars
   -- min u
-  liftIP $ setObj Minimize $ [(u,1)]
+  liftModelLP $ setObj Minimize $ [(u,1)]
    
   -- (0) sc u >= xij + di quelque soit i,j
   let ctrsMax = [ [(xij,1),(u,-1)] `LowerOrEqual` (-dij) |
@@ -133,8 +134,8 @@ gamma_ij <= gamùa'_ij
 MEMO : Essayer de chercher une CNS pour que cette condition suffise à contraindre la consécutivité.
 -----}
       nbGamma = n*m
-  gamma <-ipNewIntegerVars  nbGamma
-  gamma' <- ipNewIntegerVars nbGamma
+  gamma <- liftModel $ ipNewIntegerVars  nbGamma
+  gamma' <- liftModel $ ipNewIntegerVars nbGamma
   let  gammaTab =  array ((1,1),(n,m)) $ zip [(i,j) | i <- [1..n], j <- [1..m]] gamma
        gammaTab' =  array ((1,1),(n,m)) $ zip [(i,j) | i <- [1..n], j <- [1..m]] gamma'
        {-somme_t rijt >=1 => gamma_ij = 1                                                                                                                                                                                        
@@ -174,14 +175,29 @@ MEMO : Essayer de chercher une CNS pour que cette condition suffise à contraind
        ctrTot1 = ctrsMax ++ ctrdi ++ ctrPert ++ concat ctrGamma
        ctrTot2 = ctrY ++ ctrEx ++ ctrYR
   trace ("nb contraintes = " ++ show (length $ ctrTot1 ++ ctrTot2)) $ return ()
-  contraintes <- liftIP $ newCtrs $ fromIntegral $ length $ ctrTot1
-  contraintesEx <- liftIP $ newCtrs $  fromIntegral $ length $ ctrTot2
-  contraintesEx' <- liftIP $ newCtrs $  fromIntegral $ length $ ctrTot2
-  foldM (\_ (ci,ct) -> liftIP $ forceCtr [ci] ct) [] $ zip contraintes ctrTot1
---  foldM (\_ (ci,ct) -> liftIP $ addConstraint ci ct) Nothing $ zip contraintesEx ctrTot2
-  foldM (\_ ((ci,ci'),ct) -> liftIP $ forceCtr [ci,ci'] ct) [] $ zip (zip contraintesEx contraintesEx') ctrTot2
+  trace ("nb variables = " ++ show (length $ dvars ++ yvars ++ xvars ++ [u] ++ gamma ++ gamma')) $ return ()
+  c <- liftModelLP $ gets getC
+  trace ("Dimensions finales : " ++ show (bounds c)) return ()
   
-  liftIP please
+  contraintes <- liftModelLP $ newCtrs $ fromIntegral $ length $ ctrTot1
+  contraintesEx <- liftModelLP $ newCtrs $  fromIntegral $ length $ ctrTot2
+  contraintesEx' <- liftModelLP $ newCtrs $  fromIntegral $ length $ ctrTot2
+  foldM (\_ (ci,ct) -> liftModelLP $ forceCtr [ci] ct) [] $ zip contraintes ctrTot1
+--  foldM (\_ (ci,ct) -> liftIP $ addConstraint ci ct) Nothing $ zip contraintesEx ctrTot2
+  foldM (\_ ((ci,ci'),ct) -> liftModelLP $ forceCtr [ci,ci'] ct) [] $ zip (zip contraintesEx contraintesEx') ctrTot2
+  
+  foldM (\_ ((i,j,k),rijk) -> setDVarName rijk $ "R" ++ show i ++ show j ++ show k ) () (assocs rTab)
+  foldM (\_ (i,di) -> setDVarName di $ "D" ++ show i) () (assocs dTab)
+  foldM (\_ ((i,j),yij) -> setDVarName yij $ "Y" ++ show i ++ show j) () (assocs yTab)
+  foldM (\_ ((i,j),xij) -> setDVarName xij $ "X" ++ show i ++ show j) () (assocs xTab)
+  foldM (\_ ((i,j),gammaij) -> setDVarName gammaij $ "g" ++ show i ++ show j) () (assocs gammaTab)
+  foldM (\_ ((i,j),gammaij') -> setDVarName gammaij' $ "g'" ++ show i ++ show j) () (assocs gammaTab')
+ 
+  liftModelLP please
+  dvarmap <- gets getDVarMap
+  trace (concatMap (show' dvarmap) $ ctrTot1 ++ ctrTot2) $ return ()
   return () 
 
-ipWorkflow = snd $ runState (workflow w1) emptyIp
+mWorkflow = snd $ runState (workflow w1) emptyModel
+
+solveAndShowWorkflow w = fst $ runState (workflow w >> solveModel) emptyModel
