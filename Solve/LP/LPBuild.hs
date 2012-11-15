@@ -17,18 +17,18 @@ data Constraint = CoeffList `LowerOrEqual` Double |
 
 remplacerNoms clist m = [(fromJust li,vi) |(xi,vi) <-clist, let li = xi `M.lookup` m, isJust li ]
 show' m (c `LowerOrEqual` b) = let noms = remplacerNoms c m 
-                                   affCouple(nom,coeff) = if coeff < 0 then " - "++show coeff++ nom
-                                                          else if coeff > 0 then " + "++show coeff++ nom
+                                   affCouple(nom,coeff) = if coeff > 0 then " + "++show coeff++ nom
+                                                          else if coeff < 0 then show coeff ++ nom 
                                                           else ""                                   
                                in concat (map affCouple noms) ++ "<=" ++ show b++"\n"
 show' m (c `Equal` b) = let noms = remplacerNoms c m 
-                            affCouple(nom,coeff) = if coeff < 0 then " - "++show coeff++ nom
-                                                   else if coeff > 0 then " + "++show coeff++  nom
+                            affCouple(nom,coeff) = if coeff > 0 then " + "++show coeff++ nom
+                                                   else if coeff < 0 then show coeff ++ nom
                                                    else ""                                   
                                in concat (map affCouple noms) ++ "=" ++ show b++"\n"
 show' m (c `GreaterOrEqual` b) = let noms = remplacerNoms c m 
-                                     affCouple(nom,coeff) = if coeff < 0 then " - "++show coeff++ nom
-                                                            else if coeff > 0 then " + "++show coeff++ nom
+                                     affCouple(nom,coeff) = if coeff > 0 then " + "++show coeff++ nom
+                                                            else if coeff < 0 then  show coeff ++ nom
                                                             else ""                                   
                                in concat (map affCouple noms) ++ ">=" ++ show b++"\n"
 

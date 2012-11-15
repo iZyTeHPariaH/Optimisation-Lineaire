@@ -186,6 +186,8 @@ MEMO : Essayer de chercher une CNS pour que cette condition suffise à contraind
 --  foldM (\_ (ci,ct) -> liftIP $ addConstraint ci ct) Nothing $ zip contraintesEx ctrTot2
   foldM (\_ ((ci,ci'),ct) -> liftModelLP $ forceCtr [ci,ci'] ct) [] $ zip (zip contraintesEx contraintesEx') ctrTot2
   
+-- Affectation des noms
+  setDVarName u "Z"
   foldM (\_ ((i,j,k),rijk) -> setDVarName rijk $ "R" ++ show i ++ show j ++ show k ) () (assocs rTab)
   foldM (\_ (i,di) -> setDVarName di $ "D" ++ show i) () (assocs dTab)
   foldM (\_ ((i,j),yij) -> setDVarName yij $ "Y" ++ show i ++ show j) () (assocs yTab)
@@ -193,6 +195,7 @@ MEMO : Essayer de chercher une CNS pour que cette condition suffise à contraind
   foldM (\_ ((i,j),gammaij) -> setDVarName gammaij $ "g" ++ show i ++ show j) () (assocs gammaTab)
   foldM (\_ ((i,j),gammaij') -> setDVarName gammaij' $ "g'" ++ show i ++ show j) () (assocs gammaTab')
  
+
   liftModelLP please
   dvarmap <- gets getDVarMap
   trace (concatMap (show' dvarmap) $ ctrTot1 ++ ctrTot2) $ return ()
