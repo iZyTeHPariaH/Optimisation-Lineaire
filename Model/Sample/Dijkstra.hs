@@ -32,7 +32,7 @@ dijkstra gr = do
        arcS = arcs gr
    
    --  On alloue une variable par arc
-   dvar <- liftModel $ newVars $ fromIntegral $ M.size arcS
+   dvar <- liftModelLP $ newVars $ fromIntegral $ M.size arcS
    
    -- On associe chaque arc à sa variable
    let arcsMap = M.fromList $ zip (M.keys arcS) dvar
@@ -49,16 +49,16 @@ dijkstra gr = do
              | j <- [s1 + 1.. sn -1], let sj = somm ! j]
        ctTot = ct1:ctn:cts      
    -- On minimise la somme des distances sur les arcs choisis
-   liftModel $ setObj Minimize [(fromJust $ M.lookup arc arcsMap, dij) | (arc,dij) <- M.toList arcS]
+   liftModelLP $ setObj Minimize [(fromJust $ M.lookup arc arcsMap, dij) | (arc,dij) <- M.toList arcS]
    
    -- On alloue et on affecte les contraintes
-   (c1:c2:ctr) <- liftModel $ newCtrs $ fromIntegral $ length ctTot
-   liftModel $ forceCtr [c1] ct1
-   liftModel $ forceCtr [c2] ctn
-   liftModel $ foldM (\_ (ci,c) -> addConstraint ci c) Nothing  $ zip ctr cts
+   (c1:c2:ctr) <- liftModelLP $ newCtrs $ fromIntegral $ length ctTot
+   liftModelLP $ forceCtr [c1] ct1
+   liftModelLP $ forceCtr [c2] ctn
+   liftModelLP $ foldM (\_ (ci,c) -> addConstraint ci c) Nothing  $ zip ctr cts
    
    -- On affecte des noms aux variables de décision importantes
-   foldM (\_ ((i,j),eij) -> setLinName eij ("E" ++ show i ++ "," ++ show j)) () (M.toList arcsMap)
+   foldM (\_ ((i,j),eij) -> setDVarName eij ("E" ++ show i ++ "," ++ show j)) () (M.toList arcsMap)
    
-   liftModel please
+   liftModelLP please
    return ()

@@ -1,14 +1,15 @@
 module Model.Model where
 import Control.Monad.State
+
+import Solve.IP.IntegerPb
 import Solve.LP.LinearPb
 import Solve.LP.LPBuild
 import Solve.Simplex.StandardSimplex
 
 import Data.Maybe
 import Data.Map hiding (foldl)
-data Model = Model {getLP :: LinearPb,
-                    getLinearDVar :: Map DVar String,
-                    getIntegerDVar :: Map DVar String}
+data Model = Model {getIP :: IntegerPb,
+                    getDVarMap :: Map DVar String}
              deriving Show
 data SimplexAns = SimplexAns {solType :: OptAns,
                               finalLP :: LinearPb,
@@ -16,32 +17,29 @@ data SimplexAns = SimplexAns {solType :: OptAns,
              deriving Show
 type ModelS = State Model
 
-emptyModel = Model emptyPb empty empty
+emptyModel = Model emptyIp empty
 
 {- Affecte une étiquette à une variable de décision -}
-setLinName :: DVar -> String -> ModelS ()
-setLinName xi label = do
+setDVarName :: DVar -> String -> ModelS ()
+setDVarName xi label = do
   m <- get
-  put $ m{getLinearDVar = insert xi label (getLinearDVar m)}
+  put $ m{getDVarMap = insert xi label (getDVarMap m)}
 
-{- Résouds un modèle et en extrait les solutions (méthode des pénalités) -}
-solve :: ModelS SimplexAns
-solve = do
-  model <- get
-  lp <- gets getLP
-  let (ans,final) = runState simplex lp
-      (base,_) = runState extraireSolution lp
-      sols = foldl (\a (xi,v) -> let lname = xi `Data.Map.lookup` getLinearDVar model
-                                     iname = xi `Data.Map.lookup` getIntegerDVar model
-                                 in if isJust lname then (fromJust lname,v):a
-                                    else if isJust iname then (fromJust iname,v):a
-                                    else (show xi,v):a) [] base
-  return $ SimplexAns ans final (fromList sols)
-  
 {- Applique une transformation sur le problème du modèle -}  
-liftModel :: LinearPbS t -> ModelS t
+liftModel :: IntegerPbS t -> ModelS t
 liftModel act = do
   model <- get
-  let (ans, lp') = runState act (getLP model)
-  put $ model{getLP = lp'}
+  let (ans, ip') = runState act (getIP model)
+  put $ model{getIP = ip'}
+  return ans
+
+liftModelLP  = liftModel . liftIP
+
+{- Récupère la liste des couples nom - valeur des variables en base -}
+mGetSol :: ModelS [(String,Coefficient)]
+mGetSol = do
+  m <- get
+  let lp = getRelax $ getIP m
+      (base,_) = runState extraireSolution lp
+      ans = [(fromJust name, val) | (xi,val) <- base, let name = xi `Data.Map.lookup` (getDVarMap m), isJust name]
   return ans

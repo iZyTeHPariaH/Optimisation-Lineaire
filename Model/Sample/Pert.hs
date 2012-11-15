@@ -11,6 +11,7 @@ import Model.Sample.Graph
 
 import Solve.LP.LinearPb
 import Solve.LP.LPBuild
+import Solve.IP.IntegerPb
 import Solve.Simplex.Dual
 import Solve.Simplex.StandardSimplex
 
@@ -27,7 +28,7 @@ pertPb gr = do
   let somm = sommets gr
       (s1,sn) = bounds somm
   -- On alloue autant de variables de décision que de sommets + 1 (pour modéliser le maximum des dates de début)    
-  (tmax:dvar) <- liftModel $ newVars (sn - s1+2)
+  (tmax:dvar) <- liftModel $ liftIP $ newVars (sn - s1+2)
   
   let -- On crée un tableau associant à chaque sommet sa variable de décision
       sTab = array (s1,sn) (zip [s1..sn] dvar)
@@ -46,23 +47,24 @@ pertPb gr = do
                                                                    tj = sTab ! j ]
       ctrTot = ctrMax   ++ ctrDebut
   -- On minimise la plus grande date de début (car c'est celle de la tâche FIN)
-  liftModel $ setObj Minimize [(tmax,1)]
+  liftModel $ liftIP $ setObj Minimize [(tmax,1)]
   -- On alloue suffisament de contraintes et on les applique
-  ctrs <- liftModel $ newCtrs $ fromIntegral $ length ctrTot
-  liftModel $ foldM (\_ (ci,ctr) -> forceCtr [ci] ctr) [] $ zip ctrs ctrTot
+  ctrs <- liftModel $ liftIP $ newCtrs $ fromIntegral $ length ctrTot
+  liftModel $ liftIP $ foldM (\_ (ci,ctr) -> forceCtr [ci] ctr) [] $ zip ctrs ctrTot
   
   -- On nomme les variables par commodité
-  setLinName tmax "Tmax"
-  foldM (\_ (si,ti) -> setLinName ti $ "S" ++ show si ) () (assocs sTab)
-  liftModel please
+  setDVarName tmax "Tmax"
+  foldM (\_ (si,ti) -> setDVarName ti $ "S" ++ show si ) () (assocs sTab)
+  liftModel $ liftIP $ please
   
   -- On résoud le problème par l'algorithme dual
-  ans <- liftModel simplexDual
+  ans <- liftModel $ liftIP $ simplexDual
   m <- get
-  base <- liftModel extraireSolution
+  sol <- mGetSol
+  return (ans, sol)
   
   -- On extrait les solutions de base
-  return (ans, [(fromJust nom,val) | (xi,val) <- base, let nom = xi `M.lookup` getLinearDVar m, isJust nom])
+  
   
 buildG1 = do
   ajouterArc 0 1 0
