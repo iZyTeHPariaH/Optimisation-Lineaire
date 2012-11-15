@@ -126,9 +126,10 @@ k1 = KnapSack [10,8,5] [6,5,4] 9
 
 ip1 = snd $ runState (knapsack k1) emptyIp
 
-solveIP ip = do
+solveIP :: IntegerPbS (IntegerPb, Double)
+solveIP = do
+     ip <- get
      let ip' = snd $ runState buildCurrentLP ip
      (pb, opt) <- runCont (branchbound pBranch pBorne pEval ip' (ip',-infty) Max) return
-     print pb
-     print opt
-     print $ fst $ runState (liftCurrentIP extraireSolution) pb
+     return (pb,opt)
+     
