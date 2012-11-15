@@ -5,6 +5,8 @@ import Control.Monad
 import Control.Monad.State
 import GHC.Float
 import Data.Array
+import qualified Data.Map as M
+import Data.Maybe
 
 type CoeffList = [(DVar,Coefficient)]
 
@@ -13,6 +15,22 @@ data Constraint = CoeffList `LowerOrEqual` Double |
                   CoeffList `Equal` Double        |
                   CoeffList `GreaterOrEqual` Double 
 
+remplacerNoms clist m = [(fromJust li,vi) |(xi,vi) <-clist, let li = xi `M.lookup` m, isJust li ]
+show' m (c `LowerOrEqual` b) = let noms = remplacerNoms c m 
+                                   affCouple(nom,coeff) = if coeff < 0 then " - "++show coeff++ nom
+                                                          else if coeff > 0 then " + "++show coeff++ nom
+                                                          else ""                                   
+                               in concat (map affCouple noms) ++ "<=" ++ show b++"\n"
+show' m (c `Equal` b) = let noms = remplacerNoms c m 
+                            affCouple(nom,coeff) = if coeff < 0 then " - "++show coeff++ nom
+                                                   else if coeff > 0 then " + "++show coeff++  nom
+                                                   else ""                                   
+                               in concat (map affCouple noms) ++ "=" ++ show b++"\n"
+show' m (c `GreaterOrEqual` b) = let noms = remplacerNoms c m 
+                                     affCouple(nom,coeff) = if coeff < 0 then " - "++show coeff++ nom
+                                                            else if coeff > 0 then " + "++show coeff++ nom
+                                                            else ""                                   
+                               in concat (map affCouple noms) ++ ">=" ++ show b++"\n"
 
 {- Positionne les coefficients de la fonction objectif
   (on prend l'opposé s'il s'agit de la minimiser) -}
