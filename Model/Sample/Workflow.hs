@@ -78,7 +78,7 @@ workflow w = do
                                                           let yij = yTab ! (i,j)
                                                               rijt = rTab ! (i,j,t)]
   -}            
-      ctrYR = [((yij,1):[(rijt,-1/dij) | t <- [0..tmax], 
+      ctrYR = [((yij,dij):[(rijt,-1) | t <- [0..tmax], 
                                         let rijt = rTab ! (i,j,t)]) `Equal` 0 
                 | i <- [1..n],
                   j <- [1..m],

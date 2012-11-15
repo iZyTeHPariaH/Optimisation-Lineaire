@@ -20,17 +20,17 @@ show' m (c `LowerOrEqual` b) = let noms = remplacerNoms c m
                                    affCouple(nom,coeff) = if coeff > 0 then " + "++show coeff++ nom
                                                           else if coeff < 0 then show coeff ++ nom 
                                                           else ""                                   
-                               in concat (map affCouple noms) ++ "<=" ++ show b++"\n"
+                               in concat (map affCouple noms) ++ "<=" ++ show b++";\n"
 show' m (c `Equal` b) = let noms = remplacerNoms c m 
                             affCouple(nom,coeff) = if coeff > 0 then " + "++show coeff++ nom
                                                    else if coeff < 0 then show coeff ++ nom
                                                    else ""                                   
-                               in concat (map affCouple noms) ++ "=" ++ show b++"\n"
+                               in concat (map affCouple noms) ++ "=" ++ show b++";\n"
 show' m (c `GreaterOrEqual` b) = let noms = remplacerNoms c m 
                                      affCouple(nom,coeff) = if coeff > 0 then " + "++show coeff++ nom
                                                             else if coeff < 0 then  show coeff ++ nom
                                                             else ""                                   
-                               in concat (map affCouple noms) ++ ">=" ++ show b++"\n"
+                               in concat (map affCouple noms) ++ ">=" ++ show b++";\n"
 
 {- Positionne les coefficients de la fonction objectif
   (on prend l'opposé s'il s'agit de la minimiser) -}
