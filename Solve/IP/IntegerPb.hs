@@ -5,7 +5,6 @@ import Control.Monad.Cont
 import Control.Monad.State
 import Data.List
 
-import Model.Model
 import Solve.IP.BranchBound
 import Solve.LP.LinearPb
 import Solve.LP.LPBuild
