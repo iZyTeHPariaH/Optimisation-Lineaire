@@ -269,8 +269,8 @@ workflow' w = do
               j <- machineRange,
               let gammaij' = gammaTab' ! (i,j)
                   dij = durees w ! (i,j)]
-             
-      ctstr = c1 ++ c2 ++ c3       
+      c4 = [([(rijt,1) | j <- machineRange, t <- temps w, let rijt = rTab ! (i,j,t)]) `GreaterOrEqual` 1| i <- jobRange]       
+      ctstr = c1 ++ c2 ++ c3 ++ c4      
       nbCtrStr = fromIntegral $ length ctstr
       nbCtrEq = fromIntegral $ length c3eq
       
