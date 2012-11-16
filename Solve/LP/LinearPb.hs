@@ -1,6 +1,8 @@
 module Solve.LP.LinearPb where
 
 import Data.Array
+import Data.Maybe
+import qualified Data.Map as M
 import Data.List
 import Control.Monad.State
 import Debug.Trace
@@ -22,7 +24,9 @@ data LinearPb = LinearPb { getA :: Array2D Double,
                            getC :: Array1D Double,
                            getZ :: Double,
                            getEcart :: [DVar],
-                           getArt :: [DVar]}
+                           getArt :: [DVar],
+                           getBase :: M.Map DVar Ctr,
+                           getBaseDuale :: M.Map Ctr DVar}
 addEcart xi = do
   p <- get
   put $ p{getEcart = xi:getEcart p}
@@ -33,6 +37,21 @@ addArt ai = do
   put $ p{getArt = ai: getArt p,
           getC = getC p // [(ai,-infty)]--,
           {-getZ = infty-}}
+addBase xi ci = do
+  p <- get
+  put $ p{getBase = M.insert xi ci (getBase p),
+          getBaseDuale = M.insert ci xi (getBaseDuale p)}
+outBase ci = do
+  p <- get
+  let base = getBase p
+      baseDuale = getBaseDuale p
+      xi = ci `M.lookup` baseDuale
+  if isJust xi
+  then  put $ p{getBase = M.delete (fromJust xi) base,
+                getBaseDuale = M.delete ci baseDuale}
+  else return ()
+
+
 --fonction qui a une liste de couple (indice,valeur) associe "valeur*x indice"
 affLigne l = let affElem (a,b) = if b>0 then " + "++(show b)++" x"++(show a)
                                  else if b<0 then " - "++drop 1 (show b)++" x"++(show a)
@@ -92,7 +111,7 @@ setCi xi ci = do
   p <- get
   put $ p{getC = getC p // [(xi,ci)]}
 
-emptyPb = LinearPb (array ((0,0),(0,0)) [((0,0),0)]) (array (0,0) [(0,0)]) (array (0,0) [(0,0)]) 0 [] []
+emptyPb = LinearPb (array ((0,0),(0,0)) [((0,0),0)]) (array (0,0) [(0,0)]) (array (0,0) [(0,0)]) 0 [] [] M.empty M.empty
 
 
 

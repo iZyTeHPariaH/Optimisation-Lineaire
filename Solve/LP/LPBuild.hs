@@ -14,6 +14,14 @@ data OptCrit = Maximize | Minimize
 data Constraint = CoeffList `LowerOrEqual` Double |
                   CoeffList `Equal` Double        |
                   CoeffList `GreaterOrEqual` Double 
+                  
+ctTuple (c1 `LowerOrEqual` b) = (c1,b)
+ctTuple (c1 `Equal` b) = (c1,b)
+ctTuple (c1 `GreaterOrEqual` b) = (c1,b)
+
+ctConst (LowerOrEqual _ _) = LowerOrEqual
+ctConst (Equal _ _) = Equal
+ctConst (GreaterOrEqual _ _) = GreaterOrEqual
 
 remplacerNoms clist m = [(fromJust li,vi) |(xi,vi) <-clist, let li = xi `M.lookup` m, isJust li ]
 show' m (c `LowerOrEqual` b) = let noms = remplacerNoms c m 
@@ -49,12 +57,14 @@ addConstraint ci c =   case c of
       then do
         [xi] <- newVars 1
         addEcart xi
+        addBase xi ci
         setCtr ci ((xi,1):clist) bi
         return $ Just xi
       else do
         [xi,yi] <- newVars 2
         addEcart xi
         addArt yi
+        addBase yi ci
         setCtr ci ((yi,1):(xi,-1):map (\(xk,ak) -> (xk, -ak) ) clist) (-bi)
         return $ Just xi    
         
@@ -62,17 +72,20 @@ addConstraint ci c =   case c of
       then do
         [xi] <- newVars 1
         addEcart xi
+        addBase xi ci
         setCtr ci ((xi,1):(map (\(xi,ai) -> (xi, -ai)) clist)) (- bi)
         return $ Just xi
       else do
         [xi,yi] <- newVars 2
         addEcart xi
         addArt yi
+        addBase yi ci
         setCtr ci ((xi,-1):(yi,1):clist) bi
         return $ Just xi
     Equal clist bi -> do
       [yi] <- newVars 1
       addArt yi
+      addBase yi ci
       setCtr ci ((yi,1):clist) bi
       return $ Nothing
 
@@ -85,17 +98,66 @@ forceCtr :: [Ctr] -> Constraint -> LinearPbS [DVar]
 forceCtr [ci] (clist `LowerOrEqual` bi) = do 
   [e] <- newVars 1
   setCtr ci ((e,1):clist) bi
+  addBase e ci 
   return [e]
 
 forceCtr [ci,ci'] (clist `Equal` bi) = do
   [e1,e2] <- newVars 2  
   setCtr ci ((e1,1):clist) bi
-  setCtr ci' ((e1,1):(map (\(xi,vi) -> (xi, -vi)) clist )) bi
+  setCtr ci' ((e1,1):(map (\(xi,vi) -> (xi, -vi)) clist )) (- bi)
+  addBase e1 ci 
+  addBase e2 ci' 
   return [e1,e2]
 
 forceCtr [ci] (clist `GreaterOrEqual` bi) = do
   [e] <- newVars 1
   forceCtr [ci] $ (map (\ (xi,val) -> (xi,-val)) clist) `LowerOrEqual` (-bi)
+  
+
+{- Retourne la liste des coefficients contenus à la ligne spécifiée -}
+getCtr :: Array2D Double -> Ctr -> [Coefficient]
+getCtr a ci = let ((_,n0),(_,n1)) = bounds $ a
+              in [a ! (ci,j) | j <- [n0..n1] ]
+  
+{- Ajoute la contrainte spécifiée (avec la variable d'écart indiqué)
+ en la changeant de base si necessaire -}
+reoptCtr' :: DVar -> Ctr ->  LinearPbS ()
+reoptCtr' ec indice = do
+  p <- get
+  let a = getA p 
+      b = getB p
+      base = getBase p
+      ((m0,n0),(m1,n1)) = bounds a
+      ligne = zip [n0..] $ getCtr a indice
+      sndMembre = b ! indice
+      
+      {- Pour chaque variable de base xj (associée à ci) présente dans la contrainte l,
+         on effectue le calcul l <- l - ci*coeff
+                               bl <- bl - bi * coeff -}
+      (ligne',bi',k) = foldl (\(l,bi,i) (xj,coeff) -> if i == m1 - m0 + 1 then (l,bi,i)
+                                                      else
+                                                      case xj `M.lookup` base of
+                                                        Nothing -> (l,bi,i)
+                                                        Just ci -> ( zipWith (\(coord,val) val' -> (coord,val - coeff*val') ) l (getCtr a ci),
+                                                                     bi - coeff* (b ! ci),
+                                                                     i+1)   )  
+                       (ligne,sndMembre,0) 
+                       ligne
+                       
+  put $ p{getB = b // [(indice,bi')],
+          getA = a // ([((indice,xi),v) |(xi,v) <-ligne'])}
+  
+{- Réoptimise sans normaliser -}
+reoptCtr :: [Ctr] -> Constraint -> LinearPbS ()
+reoptCtr cilist ctr = do
+  ec <- forceCtr cilist ctr
+  -- On sort les variables de la base (le temps qu'on normalise la contrainte)
+  foldM (\_ ci -> outBase ci) () cilist
+  foldM (\ _ (e,ct) -> reoptCtr' e ct) () $ zip ec cilist
+  -- On les rajoute
+  foldM (\_ (xi,ci) -> addBase xi ci) () $ zip ec cilist
+  return ()    
+
 {- Nettoie le problème en supprimant les artefacts créés à partir du problème vide.
  ATTENTION : Il est impératif d'utiliser la fonction une et une seule fois lors de la création
              d'un problème.-}
@@ -110,18 +172,10 @@ please = do
           getC = array (n0+1, n1) (tail $ assocs $ getC p)}
 
 {- Extrait la base actuelle du problème. -}    
-extraireSolution :: LinearPbS CoeffList
+extraireSolution :: LinearPbS [(DVar,Coefficient)]
 extraireSolution = do
   p <- get
-  let a = getA p
-      ((m0,n0),(m1,n1)) = bounds a
-      base = [(xi,val) | xi <- [n0..n1],
-                         getC p ! xi == 0,
-                         let pivs = [(i, a ! (i,xi)) | i <- [m0..m1], a ! (i,xi) /= 0]
-                             val = getB p ! (fst $ head pivs),
-                         length pivs == 1,
-                         1 == (snd $ head pivs)]
-  return base
+  return [(xi,getB p ! ci) | (xi,ci) <- M.toList (getBase p)]
 
 
 

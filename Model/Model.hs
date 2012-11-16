@@ -44,11 +44,9 @@ mGetSol = do
       ans = [(fromJust name, val) | (xi,val) <- base, let name = xi `Data.Map.lookup` (getDVarMap m), isJust name]
   return ans
   
-solveModel :: ModelS [(String,Coefficient)]
+solveModel :: ModelS ([(String,Coefficient)],Double)
 solveModel = do
   ip <- gets getIP
-  (pb,opt) <- liftModel solveIP 
-  m <- get
-  put m{getIP=pb}
+  opt <- liftModel solveIP 
   sol <- mGetSol
-  return sol
+  return (sol,opt)

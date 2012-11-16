@@ -4,6 +4,8 @@ import Control.Monad
 import Control.Monad.Cont
 import Control.Monad.State
 import Data.List
+import qualified Data.Map as M
+import Data.Array
 
 import Solve.IP.BranchBound
 import Solve.LP.LinearPb
@@ -11,16 +13,16 @@ import Solve.LP.LPBuild
 import Solve.Simplex.Dual
 import Solve.Simplex.StandardSimplex
 
+
 data IntegerPb = IntegerPb {getRelax :: LinearPb,
                             getInteger :: [DVar],
-                            floatIntegerVar :: [(DVar,Coefficient)],
-                            currentLP :: LinearPb}
+                            floatIntegerVar :: [(DVar,Coefficient)]}
           deriving Show
 
 
 type IntegerPbS = State IntegerPb
 
-emptyIp = IntegerPb emptyPb [] [] emptyPb
+emptyIp = IntegerPb emptyPb [] []
 
 {- Exécute une opération sur le problème relaxé (on relache les contraintes d'intégrité)-}
 liftIP     :: LinearPbS t -> IntegerPbS t
@@ -28,13 +30,6 @@ liftIP act =  do
   ip <- get
   let (ans,lp') = runState act (getRelax ip)
   put $ ip{getRelax = lp'}
-  return ans
-  
-liftCurrentIP :: LinearPbS t -> IntegerPbS t
-liftCurrentIP act =  do
-  ip <- get
-  let (ans,lp') = runState act (currentLP ip)
-  put $ ip{currentLP = lp'}
   return ans
 
 {- Génère n variables entières -}
@@ -50,10 +45,10 @@ ipNewIntegerVars n =  do
    Résoudre un problème trivial consiste à récupérer la solution optimale d'un tel problème -}
 instance OptNode IntegerPb where
   trivial ip = null $ floatIntegerVar ip
-  solve ip = - (getZ $ currentLP ip)
+  solve ip = - (getZ $ getRelax ip)
   
 pBorne :: IntegerPb -> Double
-pBorne ip = - (getZ $ currentLP ip)
+pBorne ip = - (getZ $ getRelax ip)
 
 pEval :: IntegerPb -> Double
 pEval _ = - infty
@@ -71,8 +66,8 @@ pBranch' = do
       -- NB : Ne considérer que les contraintes réalisables
       ct1 = [(dvar,1)] `LowerOrEqual` (fromIntegral $ truncate val)
       ct2 = [(dvar,-1)] `LowerOrEqual`  ( - 1 - (fromIntegral $ truncate val))
-  return $ map snd [ runState ((liftIP $ forceCtr [ct] ct1) >> buildCurrentLP) ip,
-                     runState ((liftIP $ forceCtr [ct] ct2) >> buildCurrentLP) ip]    
+  return $ map snd [ runState ((liftIP $ reoptCtr [ct] ct1) >> buildCurrentLP) ip,
+                     runState ((liftIP $ reoptCtr [ct] ct2) >> buildCurrentLP) ip]    
  
 pBranch p = fst $ runState pBranch' p
 
@@ -80,27 +75,23 @@ pBranch p = fst $ runState pBranch' p
    les variables entières qui ne le sont pas -}
 buildCurrentLP :: IntegerPbS ()
 buildCurrentLP = do
-  ip <- get
-  put $ ip{currentLP = getRelax ip}
   
   --liftCurrentIP simplexDual  
-  ans <- liftCurrentIP simplexDual
+  ans <- liftIP simplexDual
   
   -- Si on obtient une solution infinie (polyèdre non borné, on arrête immédiatement la recherche
   -- (on dit que toutes les variables sont entières et on fixe la oslution du pb à -infty)
-  z <- liftCurrentIP $ gets getZ
-  if ans == Infinite || z ==  infty 
-    then do 
-      put $ ip{floatIntegerVar = [],
-               currentLP = (currentLP ip){getZ =  infty}}
-    else do
-      sol <- liftCurrentIP extraireSolution
-      ip <- get
-  
-      put $ ip{floatIntegerVar = [(val, coeff) | (val,coeff) <- sol,
-                                                  val `elem` (getInteger ip),
-                                                  coeff /= fromIntegral (truncate coeff)]}
-      return ()
+  z <- liftIP $ gets getZ
+        
+  sol <- liftIP extraireSolution
+  ip <- get
+  if ans == Infinite
+  then put $ ip{getRelax = (getRelax ip){getZ = infty},
+                floatIntegerVar = []}
+  else put $ ip{floatIntegerVar = [(val, coeff) | (val, coeff) <- sol,
+       			                                      val `elem` (getInteger ip),
+       			                                      coeff /= fromIntegral (truncate coeff)]}
+  return ()
 
 
 data KnapSack = KnapSack {gains :: [Double],
@@ -112,13 +103,9 @@ knapsack k = do
  dvars <- ipNewIntegerVars nbVars
  liftIP $ setObj Minimize $ zip dvars (gains k)
  [ct] <- liftIP $ newCtrs 1
--- boolCt <- liftIP $ newCtrs nbVars
- 
  liftIP $ forceCtr [ct] $ (zip dvars (map (*(-1)) (couts k))) `LowerOrEqual` (- capacite k)
- --liftIP $  foldM (\_ (ct,var) -> addConstraint ct $ [(var,1)] `LowerOrEqual` 1) Nothing (zip boolCt dvars)
  
  liftIP please 
--- buildCurrentLP
  return ()
  
 k1 = KnapSack [10,8,5] [6,5,4] 9
@@ -126,10 +113,13 @@ k1 = KnapSack [10,8,5] [6,5,4] 9
 
 ip1 = snd $ runState (knapsack k1) emptyIp
 
-solveIP :: IntegerPbS (IntegerPb, Double)
+{- Optimise le problème en nombres entiers actuel -}
+solveIP :: IntegerPbS Double
 solveIP = do
      ip <- get
      let ip' = snd $ runState buildCurrentLP ip
      (pb, opt) <- runCont (branchbound pBranch pBorne pEval ip' (ip',-infty) Max) return
-     return (pb,opt)
+     put pb
+     return opt
      
+solveKS k = runState (knapsack k >> solveIP) emptyIp

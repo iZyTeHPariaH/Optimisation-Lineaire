@@ -4,13 +4,20 @@ import Solve.LP.LinearPb
 import Data.List
 import Control.Monad.State
 import Data.Array
+import qualified Data.Map as M
 
 -- Echelonne à partir d'un point piv, associé aux coordonnées (ipiv, jpiv)
 echelonner (ipiv,jpiv) piv = do
+  outBase ipiv
+  addBase jpiv ipiv
+  
   p <- get
   let a = getA p
       b = getB p
       c = getC p
+      base = getBase p
+      duale = getBaseDuale
+  
   put $ p{getA = a // [((i,j),val) | ((i,j),precval) <- assocs a,
                                      let val = if i == ipiv then precval/piv
                                                else if j == jpiv then 0
