@@ -212,15 +212,16 @@ workflow' :: Workflow -> ModelS ()
 workflow' w = do
   let n  = fromIntegral $ length $ jobs w
       m = fromIntegral $ length $ machines w
+      bigm = maximum $ elems $ durees w
       tmax = last $ temps w
       jobRange = [1..n]
       machineRange = [1..m] 
   
   [u] <- liftModelLP $ newVars 1
   rvars <- liftModelLP $ newVars $ n*m*(tmax + 1)
-  xvars <- liftModelLP $ newVars $ n*m
-  gamma <- liftModelLP $ newVars $ n*m
-  gamma' <- liftModelLP $ newVars $ n*m
+  xvars <- liftModelLP $ newVars $  n*m
+  gamma <- liftModel $ ipNewIntegerVars  $ n*m
+  gamma' <- liftModel $ ipNewIntegerVars $ n*m
   let rTab = array ((1,1,0),(n,m,tmax)) $ zip [(i,j,k) | i <- jobRange, j <- machineRange, k <- temps w] rvars
       xTab = array ((1,1),(n,m)) $ zip [(i,j) | i <- jobRange, j <- machineRange] xvars
       gammaTab = array ((1,1),(n,m)) $ zip [(i,j) | i <- [1..n], j <- [1..m]] gamma
@@ -259,7 +260,7 @@ workflow' w = do
             ct1 = [(gammaij,1),(gammaij',-1)] `LowerOrEqual` 0
             ct2 = ((gammaij,1):[(rijt,-1) | t <- temps w,                                      
                                 let rijt = rTab ! (i,j,t)]) `LowerOrEqual` 0
-            ct3 = ((gammaij,-infty):[(rijt,1) | t <- temps w,
+            ct3 = ((gammaij,-bigm):[(rijt,1) | t <- temps w,
                                     let rijt = rTab ! (i,j,t)]) `LowerOrEqual` 0
            
         [ct1,ct2,ct3]
@@ -270,7 +271,8 @@ workflow' w = do
               let gammaij' = gammaTab' ! (i,j)
                   dij = durees w ! (i,j)]
       c4 = [([(rijt,1) | j <- machineRange, t <- temps w, let rijt = rTab ! (i,j,t)]) `GreaterOrEqual` 1| i <- jobRange]       
-      ctstr = c1 ++ c2 ++ c3 ++ c4      
+      c5 = [ [(rijt,1) | i <- jobRange, let rijt = rTab ! (i,j,t)] `LowerOrEqual` 1 | j <- machineRange, t <- temps w]
+      ctstr = c1 ++ c2 ++ c3 ++ c4 ++ c5     
       nbCtrStr = fromIntegral $ length ctstr
       nbCtrEq = fromIntegral $ length c3eq
       
@@ -288,7 +290,10 @@ workflow' w = do
   foldM (\_ ((i,j,k),rijk) -> setDVarName rijk $ "R" ++ show i ++ show j ++ show k ) () (assocs rTab)  
   
   liftModelLP please
-  m <- get
+  model <- get
   
-  trace (concatMap (show' (getDVarMap m)) $ ctstr ++ c3eq) $ return ()
+  trace (concatMap (show' (getDVarMap model)) $ ctstr ++ c3eq) $ return ()
+  trace (concat ["int g" ++ show i ++ show j ++ ";\n"| i <- [1..n], j <- [1..m]]) $ return ()                                                                                                                                    
+  trace (concat ["int g'" ++ show i ++ show j ++ ";\n"| i <- [1..n], j <- [1..m]]) $ return () 
+  trace (concat ["bin R" ++ show i ++ show j ++ show k ++ ";\n"| i <- [1..n], j <- [1..m], k <- temps w]) $ return () 
   return ()
