@@ -206,4 +206,89 @@ MEMO : Essayer de chercher une CNS pour que cette condition suffise à contraind
 
 mWorkflow = snd $ runState (workflow w1) emptyModel
 
-solveAndShowWorkflow w = fst $ runState (workflow w >> solveModel) emptyModel
+solveAndShowWorkflow w = fst $ runState (workflow' w >> solveModel) emptyModel
+
+workflow' :: Workflow -> ModelS ()
+workflow' w = do
+  let n  = fromIntegral $ length $ jobs w
+      m = fromIntegral $ length $ machines w
+      tmax = last $ temps w
+      jobRange = [1..n]
+      machineRange = [1..m] 
+  
+  [u] <- liftModelLP $ newVars 1
+  rvars <- liftModelLP $ newVars $ n*m*(tmax + 1)
+  xvars <- liftModelLP $ newVars $ n*m
+  gamma <- liftModelLP $ newVars $ n*m
+  gamma' <- liftModelLP $ newVars $ n*m
+  let rTab = array ((1,1,0),(n,m,tmax)) $ zip [(i,j,k) | i <- jobRange, j <- machineRange, k <- temps w] rvars
+      xTab = array ((1,1),(n,m)) $ zip [(i,j) | i <- jobRange, j <- machineRange] xvars
+      gammaTab = array ((1,1),(n,m)) $ zip [(i,j) | i <- [1..n], j <- [1..m]] gamma
+      gammaTab' = array ((1,1),(n,m)) $ zip [(i,j) | i <- [1..n], j <- [1..m]] gamma'
+
+      -- u = max (xij)
+      c1 :: [Constraint]
+      c1 = do
+        i <- jobRange
+        j <- machineRange
+        let xij  = xTab ! (i,j) 
+            coeffs = (u,-1):(xij,1):[(rijt,1) | t <- temps w, let rijt = rTab ! (i,j,t)]
+        [coeffs `LowerOrEqual` 0]
+      
+      -- précédences
+      c2 :: [Constraint]
+      c2 = do
+        i <- jobRange
+        j <- machineRange
+        k <- machineRange
+        let xij = xTab ! (i,j)
+            dijk = dureesTransferts w ! (i,j,k)
+            coeffs :: [CoeffList]
+            coeffs = [(xij,1):(xok,-1):[(rijt,1) | t <- temps w, 
+                                        let rijt = rTab ! (i,j,t)] 
+                      | o <- successeurs w ! i, 
+                        let xok = xTab ! (o,k)]
+        map (\l -> l `LowerOrEqual` (- dijk)) coeffs
+      c3 :: [Constraint]
+      c3 = do
+        i <- jobRange
+        j <- machineRange
+        let gammaij = gammaTab ! (i,j)
+            gammaij' = gammaTab' ! (i,j)
+            dij = durees w ! (i,j)
+            ct1 = [(gammaij,1),(gammaij',-1)] `LowerOrEqual` 0
+            ct2 = ((gammaij,1):[(rijt,-1) | t <- temps w,                                      
+                                let rijt = rTab ! (i,j,t)]) `LowerOrEqual` 0
+            ct3 = ((gammaij,-infty):[(rijt,1) | t <- temps w,
+                                    let rijt = rTab ! (i,j,t)]) `LowerOrEqual` 0
+           
+        [ct1,ct2,ct3]
+      c3eq = [((gammaij',dij):[(rijt,-1) | t <- temps w,
+                               let rijt = rTab ! (i,j,t)]) `Equal` 0 |              
+              i <- jobRange,
+              j <- machineRange,
+              let gammaij' = gammaTab' ! (i,j)
+                  dij = durees w ! (i,j)]
+             
+      ctstr = c1 ++ c2 ++ c3       
+      nbCtrStr = fromIntegral $ length ctstr
+      nbCtrEq = fromIntegral $ length c3eq
+      
+  liftModelLP $ setObj Minimize [(u,1)]
+  ctistr <- liftModelLP $ newCtrs nbCtrStr
+  ctieq <- liftModelLP $ newCtrs $ nbCtrEq
+  ctieq' <- liftModelLP $ newCtrs $ nbCtrEq
+  liftModelLP $ foldM (\_ (ci,e) -> forceCtr [ci] e) [] $ zip ctistr ctstr
+  liftModelLP $ foldM (\_ ((ci,ci'),e) -> forceCtr [ci,ci'] e) [] $ zip (zip ctieq ctieq') c3eq
+  
+  setDVarName u "Z"
+  foldM (\_ ((i,j),xij) -> setDVarName xij $ "X" ++ show i ++ show j) () (assocs xTab)                                                                                                                                           
+  foldM (\_ ((i,j),gammaij) -> setDVarName gammaij $ "g" ++ show i ++ show j) () (assocs gammaTab)   
+  foldM (\_ ((i,j),gammaij') -> setDVarName gammaij' $ "g'" ++ show i ++ show j) () (assocs gammaTab')   
+  foldM (\_ ((i,j,k),rijk) -> setDVarName rijk $ "R" ++ show i ++ show j ++ show k ) () (assocs rTab)  
+  
+  liftModelLP please
+  m <- get
+  
+  trace (concatMap (show' (getDVarMap m)) $ ctstr ++ c3eq) $ return ()
+  return ()
