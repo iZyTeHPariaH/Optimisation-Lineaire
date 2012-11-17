@@ -16,7 +16,7 @@ type Coefficient = Double
 infty = let (mm,mM) = floatRange (0::Double)
         in ((2^(mM-1))::Double) + 1
 
-data OptAns = Opt | Infinite | Err
+data OptAns = Opt | Infinite | NotReal
           deriving (Show, Eq)
 
 data LinearPb = LinearPb { getA :: Array2D Double,
@@ -34,9 +34,9 @@ addEcart xi = do
 addArt ai = do
   p <- get
   
-  put $ p{getArt = ai: getArt p,
-          getC = getC p // [(ai,-infty)]--,
-          {-getZ = infty-}}
+  put $ p{getArt = ai: getArt p{-,
+          getC = getC p // [(ai,-infty)],
+          getZ = infty-}}
 addBase xi ci = do
   p <- get
   put $ p{getBase = M.insert xi ci (getBase p),

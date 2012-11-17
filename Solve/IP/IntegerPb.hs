@@ -86,8 +86,7 @@ buildCurrentLP = do
   sol <- liftIP extraireSolution
   ip <- get
   if ans == Infinite
-  then put $ ip{getRelax = (getRelax ip){getZ = infty},
-                floatIntegerVar = []}
+  then put $ ip{getRelax = (getRelax ip){getZ = infty}}
   else put $ ip{floatIntegerVar = [(val, coeff) | (val, coeff) <- sol,
        			                                      val `elem` (getInteger ip),
        			                                      coeff /= fromIntegral (truncate coeff)]}

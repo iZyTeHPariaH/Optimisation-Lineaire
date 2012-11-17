@@ -7,7 +7,7 @@ import GHC.Float
 import Data.Array
 import qualified Data.Map as M
 import Data.Maybe
-
+import Debug.Trace
 type CoeffList = [(DVar,Coefficient)]
 
 data OptCrit = Maximize | Minimize
@@ -119,7 +119,7 @@ getCtr :: Array2D Double -> Ctr -> [Coefficient]
 getCtr a ci = let ((_,n0),(_,n1)) = bounds $ a
               in [a ! (ci,j) | j <- [n0..n1] ]
   
-{- Ajoute la contrainte spécifiée (avec la variable d'écart indiqué)
+{- Modifie la contrainte spécifiée (avec la variable d'écart indiqué)
  en la changeant de base si necessaire -}
 reoptCtr' :: DVar -> Ctr ->  LinearPbS ()
 reoptCtr' ec indice = do
@@ -147,6 +147,30 @@ reoptCtr' ec indice = do
   put $ p{getB = b // [(indice,bi')],
           getA = a // ([((indice,xi),v) |(xi,v) <-ligne'])}
   
+-- Réoptimise une fonction objectif  
+-- Attention, il faut qu'elle concerne tous les coefficients
+reoptObj dir c = do
+  p <- get
+  let a = getA p
+      b = getB p
+      opt = getZ p
+      base = getBase p
+      ((m0,_), (m1,_)) = bounds a
+      (c',z',_) = foldl (\(couts,z, i) (xi,coeffi) -> if i == m1 - m0 + 1 then (couts,z,i) 
+                                                      else case xi `M.lookup` base of
+                                                        Nothing -> (couts,z,i)
+                                                        Just ci -> (zipWith (\(coord,val) val' -> (coord, val - coeffi*val')) 
+                                                                    couts 
+                                                                    (getCtr a ci) , 
+                                                                    z - coeffi*(b ! ci),
+                                                                    i+1) )
+                  (c,0,0) 
+                  c
+  setObj dir c'
+  p' <- get
+  put p'{getZ = z'}
+  return ()
+
 {- Réoptimise sans normaliser -}
 reoptCtr :: [Ctr] -> Constraint -> LinearPbS ()
 reoptCtr cilist ctr = do

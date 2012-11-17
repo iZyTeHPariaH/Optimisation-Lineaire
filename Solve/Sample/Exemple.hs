@@ -3,7 +3,8 @@ module Solve.Sample.Exemple where
 import Solve.LP.LinearPb
 import Solve.LP.LPBuild
 import Solve.Simplex.StandardSimplex
-
+import Solve.Simplex.TwoPhasis
+import Solve.Simplex.Dual
 import Control.Monad.State
 import Data.Array
 
@@ -38,10 +39,10 @@ p2 = do
 
 {- Max 5x1 + 6x2
  sc -x1 + x2 <= 4
-    5x1 + 3x2 <= 60
+    5x1 + 3x2 = 60
     x2 >= 5 -}  
 p3 = do  
-  [x1,x2,a1] <- newVars 3
+  [x1,x2] <- newVars 2
   [c1,c2,c3] <- newCtrs 3
   setObj Maximize [(x1,5), (x2,6)]
   addConstraint c1 $ [(x1,-1),(x2,1)] `LowerOrEqual` 4
